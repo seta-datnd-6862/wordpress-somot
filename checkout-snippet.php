@@ -312,8 +312,28 @@ function render_custom_checkout() {
                         </div>
 
                         <div class="form-group">
-                            <label>Company name (optional)</label>
-                            <input type="text" name="company" id="company">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" name="need_vat" id="need_vat" value="1" style="width: auto;">
+                                Do you need VAT invoice?
+                            </label>
+                        </div>
+
+                        <!-- VAT Fields (hidden by default) -->
+                        <div id="vat-fields" class="hidden">
+                            <div class="form-group">
+                                <label>Company name <span class="required">*</span></label>
+                                <input type="text" name="company" id="company" class="vat-required">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Company address <span class="required">*</span></label>
+                                <input type="text" name="company_address" id="company_address" class="vat-required">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Tax Code <span class="required">*</span></label>
+                                <input type="text" name="tax_code" id="tax_code" class="vat-required" placeholder="e.g., 0123456789">
+                            </div>
                         </div>
 
                         <div class="form-group">
@@ -551,7 +571,10 @@ function render_custom_checkout() {
         function getShippingFee(distance) {
             const paymentMethod = $('input[name="payment_method"]:checked').val();
             const cashOnDelivery = (paymentMethod === 'cod') ? 1 : 0;
-            const currentHour = new Date().getHours();
+            // get delivery time to determine night shift
+            const deliveryTime = $('#delivery_time').val();
+            const deliveryDate = $('#delivery_date').val();
+            const currentHour = new Date(deliveryDate + 'T' + deliveryTime).getHours();
             const nightShift = (currentHour >= 22 || currentHour <= 6) ? 1 : 0;
             
             $.ajax({
@@ -602,8 +625,6 @@ function render_custom_checkout() {
                     );
                 }
             } else {
-                $('#branch-section').addClass('hidden');
-                $('#distance-info-box').addClass('hidden');
                 calculatedShippingFee = 0;
                 updateOrderTotal();
             }
@@ -702,6 +723,16 @@ function render_custom_checkout() {
                     parseFloat($('#address_lat').val()),
                     parseFloat($('#address_lng').val())
                 );
+            }
+        });
+
+        $(document).on('change', '#need_vat', function() {
+            if ($(this).is(':checked')) {
+                $('#vat-fields').removeClass('hidden');
+                $('.vat-required').attr('required', 'required');
+            } else {
+                $('#vat-fields').addClass('hidden');
+                $('.vat-required').removeAttr('required');
             }
         });
     });
