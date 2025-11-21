@@ -1,27 +1,56 @@
-<?php
 // ========================================
 // CUSTOM THANK YOU PAGE
 // ========================================
 
-// 1. Override thank you page content
-add_filter('woocommerce_thankyou_order_received_text', 'custom_thank_you_page_content', 10, 2);
-function custom_thank_you_page_content($text, $order) {
-    if (!$order) {
-        return $text;
+// 1. Completely override thank you page
+add_action('woocommerce_thankyou', 'custom_complete_thank_you_page', 1);
+function custom_complete_thank_you_page($order_id) {
+    if (!$order_id) {
+        return;
     }
     
-    ob_start();
+    $order = wc_get_order($order_id);
+    if (!$order) {
+        return;
+    }
+    
+    // Remove all default WooCommerce thank you hooks
+    remove_all_actions('woocommerce_thankyou');
+    
+    // Render our custom page
     render_custom_thank_you_page($order);
-    return ob_get_clean();
 }
 
-// 2. Remove default WooCommerce order details
-add_action('wp', 'remove_default_order_details');
-function remove_default_order_details() {
-    if (is_order_received_page()) {
-        // Remove default order details
-        remove_action('woocommerce_thankyou', 'woocommerce_order_details_table', 10);
+// 2. Hide default order received text
+add_filter('woocommerce_thankyou_order_received_text', '__return_empty_string', 999);
+
+// 3. Remove default order details table
+remove_action('woocommerce_thankyou', 'woocommerce_order_details_table', 10);
+
+// 4. Hide all default WooCommerce sections on thank you page
+add_action('wp_head', 'hide_default_woocommerce_thankyou_sections');
+function hide_default_woocommerce_thankyou_sections() {
+    if (!is_order_received_page()) {
+        return;
     }
+    ?>
+    <style>
+        /* Hide ALL default WooCommerce elements */
+        .woocommerce-order-received .woocommerce-order-overview,
+        .woocommerce-order-received .woocommerce-order-details,
+        .woocommerce-order-received .woocommerce-customer-details,
+        .woocommerce-order-received .woocommerce-bacs-bank-details,
+        .woocommerce-order-received .woocommerce-thankyou-order-details,
+        .woocommerce-order-received .woocommerce-notice,
+        .woocommerce-order-received .woocommerce-order,
+        ul.order_details,
+        .woocommerce-table,
+        .woocommerce-column,
+        .woocommerce-columns {
+            display: none !important;
+        }
+    </style>
+    <?php
 }
 
 // 3. Render custom thank you page
@@ -49,7 +78,7 @@ function render_custom_thank_you_page($order) {
         .success-header {
             text-align: center;
             padding: 40px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #163917 0%, #0f2910 100%);
             border-radius: 12px;
             color: white;
             margin-bottom: 30px;
@@ -131,7 +160,7 @@ function render_custom_thank_you_page($order) {
         }
         
         .bank-transfer-section {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #163917 0%, #0f2910 100%);
             padding: 30px;
             border-radius: 12px;
             color: white;
@@ -220,24 +249,24 @@ function render_custom_thank_you_page($order) {
         }
         
         .btn-primary {
-            background: #667eea;
+            background: #163917;
             color: white;
         }
         
         .btn-primary:hover {
-            background: #5568d3;
+            background: #0f2910;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+            box-shadow: 0 4px 12px rgba(22, 57, 23, 0.4);
         }
         
         .btn-secondary {
             background: white;
-            color: #667eea !important;
-            border: 2px solid #667eea;
+            color: #163917 !important;
+            border: 2px solid #163917;
         }
         
         .btn-secondary:hover {
-            background: #667eea;
+            background: #163917;
             color: white !important;
             transform: translateY(-2px);
         }
@@ -343,7 +372,7 @@ function render_custom_thank_you_page($order) {
             
             <div class="info-row">
                 <span class="info-label">Total Amount</span>
-                <span class="info-value" style="color: #667eea; font-size: 20px;">₱<?php echo number_format($total, 2); ?></span>
+                <span class="info-value" style="color: #163917; font-size: 20px;">₱<?php echo number_format($total, 2); ?></span>
             </div>
         </div>
 
@@ -525,13 +554,45 @@ function render_custom_thank_you_page($order) {
                     <?php endif; ?>
                     <tr class="total-row">
                         <td colspan="3" style="text-align: right;"><strong>TOTAL:</strong></td>
-                        <td style="text-align: right; color: #667eea;"><strong>₱<?php echo number_format($total, 2); ?></strong></td>
+                        <td style="text-align: right; color: #163917;"><strong>₱<?php echo number_format($total, 2); ?></strong></td>
                     </tr>
                 </tfoot>
             </table>
         </div>
 
-        <!-- Action Buttons -->
+        <!-- Action Buttons for Order Management -->
+        <div class="info-card">
+            <div class="card-title">
+                ⚙️ Actions
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                <button onclick="window.print()" class="action-btn action-print">
+                    🖨️ PRINT
+                </button>
+                <a href="<?php echo $order->get_checkout_order_received_url(); ?>?download=invoice">
+                    <button class="action-btn action-download">📥 Download</button>
+                </a>
+                <?php if ($payment_method === 'cod' || $payment_method === 'bank_transfer' || $payment_method === 'bacs'): ?>
+                <button onclick="showPaymentModal()" class="action-btn action-pay">
+                    💳 PAY
+                </button>
+                <?php endif; ?>
+                <button onclick="cancelOrder(<?php echo $order_id; ?>)" class="action-btn action-cancel">
+                    ❌ CANCEL
+                </button>
+            </div>
+            
+            <?php if ($payment_method === 'cod' || $payment_method === 'bank_transfer' || $payment_method === 'bacs'): ?>
+            <div style="text-align: center; padding: 15px; background: #fef3c7; border-radius: 8px;">
+                <p style="margin: 0; font-size: 14px; color: #92400e;">
+                    <strong>⚠️ Payment Status:</strong> Pending - Please complete your payment to process the order
+                </p>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Continue Shopping & View Orders Buttons -->
         <div class="action-buttons">
             <a href="<?php echo wc_get_page_permalink('shop'); ?>" class="btn btn-primary">
                 🛍️ Continue Shopping
@@ -541,6 +602,113 @@ function render_custom_thank_you_page($order) {
             </a>
         </div>
     </div>
+    
+    <!-- Payment Modal -->
+    <div id="payment-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;">
+            <h3 style="margin-top: 0; color: #2d3748;">Complete Your Payment</h3>
+            
+            <div style="margin: 20px 0;">
+                <p style="font-size: 16px;"><strong>Order Amount:</strong> <span style="color: #163917; font-size: 24px;">₱<?php echo number_format($total, 2); ?></span></p>
+            </div>
+            
+            <?php if ($payment_method === 'bank_transfer' || $payment_method === 'bacs'): ?>
+            <div style="margin: 20px 0;">
+                <p style="margin-bottom: 15px;"><strong>Choose Payment Method:</strong></p>
+                
+                <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #2563eb;">🏦 BDO Bank</h4>
+                    <p style="margin: 5px 0;"><strong>Account:</strong> 007540182560</p>
+                    <p style="margin: 5px 0;"><strong>Name:</strong> Kha V Ngo</p>
+                    <img src="https://so-mot.com/wp-content/uploads/2025/10/BDO-007540182560-Kha-V-Ngo.jpg" alt="BDO QR" style="max-width: 200px; margin-top: 10px; border-radius: 8px;">
+                </div>
+                
+                <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #10b981;">📱 GCash</h4>
+                    <p style="margin: 5px 0;"><strong>Number:</strong> 09950979419</p>
+                    <p style="margin: 5px 0;"><strong>Name:</strong> V**BI*H N</p>
+                    <img src="https://so-mot.com/wp-content/uploads/2025/10/Gcash-09950979419-V-BI-H-N.jpg" alt="GCash QR" style="max-width: 200px; margin-top: 10px; border-radius: 8px;">
+                </div>
+                
+                <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <p style="margin: 0; font-size: 13px; color: #92400e;">
+                        <strong>📸 After payment:</strong> Please send your payment proof to confirm your order. Include Order #<?php echo $order_id; ?> in your message.
+                    </p>
+                </div>
+            </div>
+            <?php endif; ?>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px;">
+                <button onclick="closePaymentModal()" style="padding: 12px; border: 2px solid #e2e8f0; background: #163917; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    Close
+                </button>
+                <button onclick="markAsPaid(<?php echo $order_id; ?>)" style="padding: 12px; background: #163917; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                    I've Paid
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+    function showPaymentModal() {
+        document.getElementById('payment-modal').style.display = 'flex';
+    }
+    
+    function closePaymentModal() {
+        document.getElementById('payment-modal').style.display = 'none';
+    }
+    
+    function markAsPaid(orderId) {
+        if (confirm('Have you completed the payment and sent the proof?')) {
+            alert('Thank you! We will verify your payment and process your order shortly.');
+            closePaymentModal();
+            // Optionally send AJAX to update order note
+            jQuery.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'mark_order_as_paid',
+                    order_id: orderId
+                },
+                success: function(response) {
+                    console.log('Payment marked');
+                }
+            });
+        }
+    }
+    
+    function cancelOrder(orderId) {
+        if (confirm('Are you sure you want to cancel this order?')) {
+            jQuery.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'cancel_customer_order',
+                    order_id: orderId,
+                    security: '<?php echo wp_create_nonce('cancel_order_' . $order_id); ?>'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        alert('Order cancelled successfully');
+                        location.reload();
+                    } else {
+                        alert(response.data.message || 'Error cancelling order');
+                    }
+                },
+                error: function() {
+                    alert('Error cancelling order. Please contact support.');
+                }
+            });
+        }
+    }
+    
+    // Close modal when clicking outside
+    document.getElementById('payment-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePaymentModal();
+        }
+    });
+    </script>
     <?php
 }
 
@@ -552,11 +720,22 @@ function add_custom_thank_you_styles() {
     }
     ?>
     <style>
-        /* Hide default WooCommerce elements on thank you page */
+        /* Hide ALL default WooCommerce elements on thank you page */
         .woocommerce-order-details,
         .woocommerce-customer-details,
-        .woocommerce-order-overview {
+        .woocommerce-order-overview,
+        .woocommerce-thankyou-order-details,
+        .woocommerce-order,
+        .woocommerce-notice,
+        .woocommerce-bacs-bank-details,
+        ul.order_details,
+        .woocommerce-table,
+        .woocommerce-columns,
+        .woocommerce-column,
+        section.woocommerce-order-details,
+        section.woocommerce-customer-details {
             display: none !important;
+            visibility: hidden !important;
         }
         
         /* Adjust page layout */
@@ -564,6 +743,59 @@ function add_custom_thank_you_styles() {
             margin: 0 !important;
             padding: 0 !important;
         }
+        
+        /* Make sure our custom content shows */
+        .custom-thank-you-wrapper {
+            display: block !important;
+            visibility: visible !important;
+        }
     </style>
     <?php
+}
+
+// 5. AJAX handler for marking order as paid
+add_action('wp_ajax_mark_order_as_paid', 'mark_order_as_paid_handler');
+add_action('wp_ajax_nopriv_mark_order_as_paid', 'mark_order_as_paid_handler');
+function mark_order_as_paid_handler() {
+    $order_id = intval($_POST['order_id']);
+    $order = wc_get_order($order_id);
+    
+    if ($order) {
+        $order->add_order_note('Customer marked order as paid and will send payment proof.');
+        wp_send_json_success();
+    } else {
+        wp_send_json_error();
+    }
+}
+
+// 6. AJAX handler for cancelling order
+add_action('wp_ajax_cancel_customer_order', 'cancel_customer_order_handler');
+add_action('wp_ajax_nopriv_cancel_customer_order', 'cancel_customer_order_handler');
+function cancel_customer_order_handler() {
+    $order_id = intval($_POST['order_id']);
+    $nonce = sanitize_text_field($_POST['security']);
+    
+    // Verify nonce
+    if (!wp_verify_nonce($nonce, 'cancel_order_' . $order_id)) {
+        wp_send_json_error(array('message' => 'Security check failed'));
+        return;
+    }
+    
+    $order = wc_get_order($order_id);
+    
+    if (!$order) {
+        wp_send_json_error(array('message' => 'Order not found'));
+        return;
+    }
+    
+    // Check if order can be cancelled (only pending/on-hold orders)
+    if (!in_array($order->get_status(), array('pending', 'on-hold'))) {
+        wp_send_json_error(array('message' => 'This order cannot be cancelled'));
+        return;
+    }
+    
+    // Cancel the order
+    $order->update_status('cancelled', 'Order cancelled by customer.');
+    
+    wp_send_json_success(array('message' => 'Order cancelled successfully'));
 }
