@@ -1,7 +1,5 @@
 <?php
 
-
-
 // ========================================
 // CUSTOM CHECKOUT PAGE
 // ========================================
@@ -259,9 +257,10 @@ function render_custom_checkout() {
                             <input type="date" name="delivery_date" id="delivery_date" required min="<?php echo date('Y-m-d'); ?>">
                         </div>
 
+
                         <div class="form-group">
                             <label>Delivery time <span class="required">*</span></label>
-                            <input type="time" name="delivery_time" id="delivery_time" required>
+                            <input type="time" name="delivery_time" id="delivery_time" required min="07:00" max="23:00">
                         </div>
                     </div>
 
@@ -339,8 +338,7 @@ function render_custom_checkout() {
                         <div class="form-group">
                             <label>Country / Region <span class="required">*</span></label>
                             <select name="country" id="country" required>
-                                <option value="Philippines">Philippines</option>
-                                <option value="Vietnam" selected>Vietnam</option>
+                                <option value="Philippines" selected>Philippines</option>
                             </select>
                         </div>
 
@@ -360,14 +358,28 @@ function render_custom_checkout() {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div class="form-group">
                                 <label>Town / City <span class="required">*</span></label>
-                                <input type="text" name="city" id="city" required>
+                                
+                                <select name="city" id="city" required>
+                                    <option value="PASAY">PASAY</option>
+                                    <option value="PARANAQUE">PARANAQUE</option>
+                                    <option value="MAKATI">MAKATI</option>
+                                    <option value="MANILA">MANILA</option>
+                                    <option value="MANDALUYONG">MANDALUYONG</option>
+                                    <option value="TAGUIG">TAGUIG</option>
+                                    <option value="PASIG">PASIG</option>
+                                    <option value="SAN JUAN">SAN JUAN</option>
+                                    <option value="MALABON">MALABON</option>
+                                    <option value="MARIKINA">MARIKINA</option>
+                                    <option value="QUEZON CITY">QUEZON CITY</option>
+                                    <option value="LAS PIÑAS">LAS PIÑAS</option>
+                                    <option value="VALENZUELA">VALENZUELA</option>
+                                    <option value="CALOOCAN">CALOOCAN</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label>State / County <span class="required">*</span></label>
                                 <select name="state" id="state" required>
                                     <option value="Metro Manila">Metro Manila</option>
-                                    <option value="Hanoi">Hanoi</option>
-                                    <option value="Da Nang">Da Nang</option>
                                 </select>
                             </div>
                         </div>
@@ -385,8 +397,8 @@ function render_custom_checkout() {
 
                         <!-- Distance Info (for delivery) -->
                         <div class="delivery-info-box hidden" id="distance-info-box">
-                            <p><strong>🚚 Khoảng cách:</strong> <span id="distance-display">0</span> km</p>
-                            <p><strong>💰 Phí giao hàng:</strong> <span id="shipping-fee-display">0</span></p>
+                            <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
+                            <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">0</span></p>
                         </div>
                     </div>
 
@@ -833,6 +845,7 @@ function display_custom_checkout_info_in_admin($order) {
     $branch = $order->get_meta('_selected_branch');
     $lat = $order->get_meta('_delivery_latitude');
     $lng = $order->get_meta('_delivery_longitude');
+    $payment_method = $order->get_payment_method();
     
     echo '<div class="custom-checkout-info" style="padding: 15px; background: #f0f9ff; margin-top: 15px; border-radius: 4px;">';
     echo '<h3 style="margin-top: 0;">🚚 Delivery Information</h3>';
@@ -858,5 +871,234 @@ function display_custom_checkout_info_in_admin($order) {
     }
     
     echo '</div>';
+    
+    // Bank Transfer Information (if payment method is bank transfer)
+    if ($payment_method === 'bank_transfer' || $payment_method === 'bacs') {
+        echo '<div class="bank-transfer-info" style="padding: 15px; background: #f0fdf4; margin-top: 15px; border-radius: 4px; border-left: 4px solid #10b981;">';
+        echo '<h3 style="margin-top: 0;">💳 Bank Transfer Details</h3>';
+        
+        echo '<div style="margin-bottom: 20px; padding: 10px; background: white; border-radius: 4px;">';
+        echo '<h4 style="margin: 0 0 10px 0; color: #2563eb;">BDO Account</h4>';
+        echo '<p style="margin: 5px 0;"><strong>Account Name:</strong> Kha V Ngo</p>';
+        echo '<p style="margin: 5px 0;"><strong>Bank:</strong> BDO</p>';
+        echo '<p style="margin: 5px 0;"><strong>Account Number:</strong> <span style="font-size: 16px; font-weight: bold; color: #2563eb;">007540182560</span></p>';
+        echo '<p style="margin: 10px 0 5px 0;"><strong>QR Code:</strong></p>';
+        echo '<img src="https://so-mot.com/wp-content/uploads/2025/10/BDO-007540182560-Kha-V-Ngo.jpg" alt="BDO QR Code" style="max-width: 200px; border: 1px solid #ddd; border-radius: 4px;">';
+        echo '</div>';
+        
+        echo '<div style="padding: 10px; background: white; border-radius: 4px;">';
+        echo '<h4 style="margin: 0 0 10px 0; color: #10b981;">GCash Account</h4>';
+        echo '<p style="margin: 5px 0;"><strong>Account Name:</strong> V**BI*H N</p>';
+        echo '<p style="margin: 5px 0;"><strong>Payment Method:</strong> GCash</p>';
+        echo '<p style="margin: 5px 0;"><strong>Phone Number:</strong> <span style="font-size: 16px; font-weight: bold; color: #10b981;">09950979419</span></p>';
+        echo '<p style="margin: 10px 0 5px 0;"><strong>QR Code:</strong></p>';
+        echo '<img src="https://so-mot.com/wp-content/uploads/2025/10/Gcash-09950979419-V-BI-H-N.jpg" alt="GCash QR Code" style="max-width: 200px; border: 1px solid #ddd; border-radius: 4px;">';
+        echo '</div>';
+        
+        echo '<div style="margin-top: 15px; padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px;">';
+        echo '<p style="margin: 0; font-size: 13px;"><strong>⚠️ Note:</strong> Please confirm payment by sending transfer slip to complete the order.</p>';
+        echo '</div>';
+        
+        echo '</div>';
+    }
+    
+    // VAT Invoice info
+    $need_vat = $order->get_meta('_need_vat_invoice');
+    if ($need_vat === 'yes') {
+        $vat_company = $order->get_meta('_vat_company_name');
+        $vat_address = $order->get_meta('_vat_company_address');
+        $vat_tax_code = $order->get_meta('_vat_tax_code');
+        
+        echo '<div class="vat-invoice-info" style="padding: 15px; background: #fff7ed; margin-top: 15px; border-radius: 4px; border-left: 4px solid #f59e0b;">';
+        echo '<h3 style="margin-top: 0;">🧾 VAT Invoice Required</h3>';
+        
+        if ($vat_company) {
+            echo '<p><strong>Company Name:</strong> ' . esc_html($vat_company) . '</p>';
+        }
+        
+        if ($vat_address) {
+            echo '<p><strong>Company Address:</strong> ' . esc_html($vat_address) . '</p>';
+        }
+        
+        if ($vat_tax_code) {
+            echo '<p><strong>Tax Code:</strong> ' . esc_html($vat_tax_code) . '</p>';
+        }
+        
+        echo '</div>';
+    }
+}
+
+// 5. Customize order confirmation email
+add_filter('woocommerce_email_order_meta_fields', 'add_custom_fields_to_order_email', 10, 3);
+function add_custom_fields_to_order_email($fields, $sent_to_admin, $order) {
+    $custom_fields = array();
+    
+    // Delivery Information
+    $delivery_type = $order->get_meta('_delivery_type');
+    $delivery_date = $order->get_meta('_delivery_date');
+    $delivery_time = $order->get_meta('_delivery_time');
+    $branch = $order->get_meta('_selected_branch');
+    
+    if ($delivery_type) {
+        $custom_fields[] = array(
+            'label' => 'Delivery Type',
+            'value' => ucfirst($delivery_type)
+        );
+    }
+    
+    if ($delivery_date) {
+        $custom_fields[] = array(
+            'label' => 'Delivery Date',
+            'value' => $delivery_date
+        );
+    }
+    
+    if ($delivery_time) {
+        $custom_fields[] = array(
+            'label' => 'Delivery Time',
+            'value' => $delivery_time
+        );
+    }
+    
+    if ($branch) {
+        $custom_fields[] = array(
+            'label' => 'Selected Branch',
+            'value' => ucfirst($branch)
+        );
+    }
+    
+    // VAT Invoice Information
+    $need_vat = $order->get_meta('_need_vat_invoice');
+    if ($need_vat === 'yes') {
+        $custom_fields[] = array(
+            'label' => 'VAT Invoice',
+            'value' => 'Required'
+        );
+        
+        $vat_company = $order->get_meta('_vat_company_name');
+        if ($vat_company) {
+            $custom_fields[] = array(
+                'label' => 'Company Name',
+                'value' => $vat_company
+            );
+        }
+        
+        $vat_address = $order->get_meta('_vat_company_address');
+        if ($vat_address) {
+            $custom_fields[] = array(
+                'label' => 'Company Address',
+                'value' => $vat_address
+            );
+        }
+        
+        $vat_tax_code = $order->get_meta('_vat_tax_code');
+        if ($vat_tax_code) {
+            $custom_fields[] = array(
+                'label' => 'Tax Code',
+                'value' => $vat_tax_code
+            );
+        }
+    }
+    
+    return array_merge($fields, $custom_fields);
+}
+
+// 6. Add custom content to order emails
+add_action('woocommerce_email_before_order_table', 'add_custom_content_to_order_email', 20, 4);
+function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, $email) {
+    // Only add to customer emails
+    if ($sent_to_admin) {
+        return;
+    }
+    
+    $delivery_type = $order->get_meta('_delivery_type');
+    $delivery_date = $order->get_meta('_delivery_date');
+    $delivery_time = $order->get_meta('_delivery_time');
+    $branch = $order->get_meta('_selected_branch');
+    $need_vat = $order->get_meta('_need_vat_invoice');
+    
+    if ($plain_text) {
+        // Plain text email
+        echo "\n========================================\n";
+        echo "DELIVERY INFORMATION\n";
+        echo "========================================\n\n";
+        
+        if ($delivery_type) {
+            echo "Delivery Type: " . ucfirst($delivery_type) . "\n";
+        }
+        if ($delivery_date) {
+            echo "Delivery Date: " . $delivery_date . "\n";
+        }
+        if ($delivery_time) {
+            echo "Delivery Time: " . $delivery_time . "\n";
+        }
+        if ($branch && $delivery_type === 'delivery') {
+            echo "Branch: " . ucfirst($branch) . "\n";
+        }
+        
+        if ($need_vat === 'yes') {
+            echo "\n========================================\n";
+            echo "VAT INVOICE INFORMATION\n";
+            echo "========================================\n\n";
+            
+            $vat_company = $order->get_meta('_vat_company_name');
+            $vat_address = $order->get_meta('_vat_company_address');
+            $vat_tax_code = $order->get_meta('_vat_tax_code');
+            
+            if ($vat_company) echo "Company Name: " . $vat_company . "\n";
+            if ($vat_address) echo "Company Address: " . $vat_address . "\n";
+            if ($vat_tax_code) echo "Tax Code: " . $vat_tax_code . "\n";
+        }
+        
+        echo "\n";
+        
+    } else {
+        // HTML email
+        ?>
+        <div style="margin-bottom: 40px; padding: 20px; background-color: #f7fafc; border-radius: 8px; border-left: 4px solid #4299e1;">
+            <h2 style="color: #2d3748; margin-top: 0; font-size: 20px;">🚚 Delivery Information</h2>
+            
+            <?php if ($delivery_type): ?>
+                <p style="margin: 8px 0;"><strong>Delivery Type:</strong> <?php echo esc_html(ucfirst($delivery_type)); ?></p>
+            <?php endif; ?>
+            
+            <?php if ($delivery_date): ?>
+                <p style="margin: 8px 0;"><strong>Delivery Date:</strong> <?php echo esc_html($delivery_date); ?></p>
+            <?php endif; ?>
+            
+            <?php if ($delivery_time): ?>
+                <p style="margin: 8px 0;"><strong>Delivery Time:</strong> <?php echo esc_html($delivery_time); ?></p>
+            <?php endif; ?>
+            
+            <?php if ($branch && $delivery_type === 'delivery'): ?>
+                <p style="margin: 8px 0;"><strong>Branch:</strong> <?php echo esc_html(ucfirst($branch)); ?></p>
+            <?php endif; ?>
+        </div>
+        
+        <?php if ($need_vat === 'yes'): ?>
+            <div style="margin-bottom: 40px; padding: 20px; background-color: #fffaf0; border-radius: 8px; border-left: 4px solid #ed8936;">
+                <h2 style="color: #2d3748; margin-top: 0; font-size: 20px;">🧾 VAT Invoice Information</h2>
+                
+                <?php 
+                $vat_company = $order->get_meta('_vat_company_name');
+                $vat_address = $order->get_meta('_vat_company_address');
+                $vat_tax_code = $order->get_meta('_vat_tax_code');
+                ?>
+                
+                <?php if ($vat_company): ?>
+                    <p style="margin: 8px 0;"><strong>Company Name:</strong> <?php echo esc_html($vat_company); ?></p>
+                <?php endif; ?>
+                
+                <?php if ($vat_address): ?>
+                    <p style="margin: 8px 0;"><strong>Company Address:</strong> <?php echo esc_html($vat_address); ?></p>
+                <?php endif; ?>
+                
+                <?php if ($vat_tax_code): ?>
+                    <p style="margin: 8px 0;"><strong>Tax Code:</strong> <?php echo esc_html($vat_tax_code); ?></p>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+        <?php
+    }
 }
 
