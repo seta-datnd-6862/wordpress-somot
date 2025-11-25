@@ -385,6 +385,11 @@ function render_custom_checkout() {
                         </div>
 
                         <div class="form-group">
+                            <label>Phone <span class="required">*</span></label>
+                            <input type="tel" name="phone" id="phone" required>
+                        </div>
+
+                        <div class="form-group">
                             <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                                 <input type="checkbox" name="need_vat" id="need_vat" value="1" style="width: auto;">
                                 Do you need VAT invoice?
@@ -409,69 +414,67 @@ function render_custom_checkout() {
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Country / Region <span class="required">*</span></label>
-                            <select name="country" id="country" required>
-                                <option value="Philippines" selected>Philippines</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Street address <span class="required">*</span></label>
-                            <input type="text" name="address" id="address-autocomplete" required placeholder="Start typing address...">
-                            <input type="hidden" name="address_lat" id="address_lat">
-                            <input type="hidden" name="address_lng" id="address_lng">
-                            <div id="address-error" class="error-message hidden">Please select an address from suggestions</div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Apartment, suite, unit, etc. (optional)</label>
-                            <input type="text" name="apartment" id="apartment">
-                        </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <!-- Delivery Address Fields (Hidden by default) -->
+                        <div id="delivery-address-fields" class="hidden">
                             <div class="form-group">
-                                <label>Town / City <span class="required">*</span></label>
-                                <select name="city" id="city" required>
-                                    <option value="PASAY">PASAY</option>
-                                    <option value="PARANAQUE">PARANAQUE</option>
-                                    <option value="MAKATI">MAKATI</option>
-                                    <option value="MANILA">MANILA</option>
-                                    <option value="MANDALUYONG">MANDALUYONG</option>
-                                    <option value="TAGUIG">TAGUIG</option>
-                                    <option value="PASIG">PASIG</option>
-                                    <option value="SAN JUAN">SAN JUAN</option>
-                                    <option value="MALABON">MALABON</option>
-                                    <option value="MARIKINA">MARIKINA</option>
-                                    <option value="QUEZON CITY">QUEZON CITY</option>
-                                    <option value="LAS PIÑAS">LAS PIÑAS</option>
-                                    <option value="VALENZUELA">VALENZUELA</option>
-                                    <option value="CALOOCAN">CALOOCAN</option>
+                                <label>Country / Region <span class="required">*</span></label>
+                                <select name="country" id="country" class="delivery-required">
+                                    <option value="Philippines" selected>Philippines</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label>State / County <span class="required">*</span></label>
-                                <select name="state" id="state" required>
-                                    <option value="Metro Manila">Metro Manila</option>
-                                </select>
-                            </div>
-                        </div>
 
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label>Street address <span class="required">*</span></label>
+                                <input type="text" name="address" id="address-autocomplete" class="delivery-required" placeholder="Start typing address...">
+                                <input type="hidden" name="address_lat" id="address_lat">
+                                <input type="hidden" name="address_lng" id="address_lng">
+                                <div id="address-error" class="error-message hidden">Please select an address from suggestions</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Apartment, suite, unit, etc. (optional)</label>
+                                <input type="text" name="apartment" id="apartment">
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="form-group">
+                                    <label>Town / City <span class="required">*</span></label>
+                                    <select name="city" id="city" class="delivery-required">
+                                        <option value="">-- Select City --</option>
+                                        <option value="PASAY">PASAY</option>
+                                        <option value="PARANAQUE">PARANAQUE</option>
+                                        <option value="MAKATI">MAKATI</option>
+                                        <option value="MANILA">MANILA</option>
+                                        <option value="MANDALUYONG">MANDALUYONG</option>
+                                        <option value="TAGUIG">TAGUIG</option>
+                                        <option value="PASIG">PASIG</option>
+                                        <option value="SAN JUAN">SAN JUAN</option>
+                                        <option value="MALABON">MALABON</option>
+                                        <option value="MARIKINA">MARIKINA</option>
+                                        <option value="QUEZON CITY">QUEZON CITY</option>
+                                        <option value="LAS PIÑAS">LAS PIÑAS</option>
+                                        <option value="VALENZUELA">VALENZUELA</option>
+                                        <option value="CALOOCAN">CALOOCAN</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>State / County <span class="required">*</span></label>
+                                    <select name="state" id="state" class="delivery-required">
+                                        <option value="Metro Manila">Metro Manila</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <div class="form-group">
                                 <label>Postcode / ZIP <span class="required">*</span></label>
-                                <input type="text" name="postcode" id="postcode" required>
+                                <input type="text" name="postcode" id="postcode" class="delivery-required">
                             </div>
-                            <div class="form-group">
-                                <label>Phone <span class="required">*</span></label>
-                                <input type="tel" name="phone" id="phone" required>
-                            </div>
-                        </div>
 
-                        <!-- Distance Info -->
-                        <div class="delivery-info-box hidden" id="distance-info-box">
-                            <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
-                            <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">0</span></p>
+                            <!-- Distance Info -->
+                            <div class="delivery-info-box hidden" id="distance-info-box">
+                                <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
+                                <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">0</span></p>
+                            </div>
                         </div>
                     </div>
 
@@ -806,6 +809,11 @@ function render_custom_checkout() {
         $('input[name="delivery_type"]').change(function() {
             if ($(this).val() === 'delivery') {
                 $('#branch-section').removeClass('hidden');
+                $('#delivery-address-fields').removeClass('hidden');
+                
+                // Make delivery fields required
+                $('.delivery-required').attr('required', 'required');
+                
                 calculatedShippingFee = 0;
                 
                 if ($('#address_lat').val() && $('#address_lng').val()) {
@@ -815,6 +823,13 @@ function render_custom_checkout() {
                     );
                 }
             } else {
+                $('#branch-section').addClass('hidden');
+                $('#delivery-address-fields').addClass('hidden');
+                $('#distance-info-box').addClass('hidden');
+                
+                // Remove required from delivery fields
+                $('.delivery-required').removeAttr('required');
+                
                 calculatedShippingFee = 0;
                 updateOrderTotal();
             }
@@ -849,7 +864,9 @@ function render_custom_checkout() {
         $('#custom-checkout-form').submit(function(e) {
             e.preventDefault();
             
-            if ($('input[name="delivery_type"]:checked').val() === 'delivery') {
+            const deliveryType = $('input[name="delivery_type"]:checked').val();
+            
+            if (deliveryType === 'delivery') {
                 if (!$('#branch-select').val()) {
                     alert('Please select a branch');
                     return false;
