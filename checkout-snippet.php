@@ -1,13 +1,12 @@
 <?php
 
 // ========================================
-// CUSTOM CHECKOUT PAGE
+// CUSTOM CHECKOUT PAGE WITH COUPON
 // ========================================
 
 // 1. Detect custom checkout page và hiển thị nội dung
 add_filter('the_content', 'custom_checkout_page_content');
 function custom_checkout_page_content($content) {
-    // THAY 'custom-checkout' BẰNG SLUG CỦA TRANG BẠN TẠO
     if (is_page('checkout')) {
         ob_start();
         render_custom_checkout();
@@ -26,7 +25,7 @@ function render_custom_checkout() {
         return;
     }
     
-    // Lấy thông tin chi nhánh từ settings (bạn có thể custom)
+    // Lấy thông tin chi nhánh từ settings
     $branches = array(
         array('id' => 'tayuman', 'name' => 'Tayuman Branch', 'lat' => 14.6175959, 'lng' => 120.9837713, 'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines'),
         array('id' => 'pioneer', 'name' => 'Pioneer Branch', 'lat' => 14.5731404, 'lng' => 121.0164509, 'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines'),
@@ -220,6 +219,82 @@ function render_custom_checkout() {
         .required {
             color: #dc2626;
         }
+        
+        /* Coupon Styles */
+        .coupon-section {
+            background: #f0f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px dashed #3b82f6;
+        }
+        .coupon-input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .coupon-input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .coupon-input-group button {
+            padding: 12px 24px;
+            background: #2d5016;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+        .coupon-input-group button:hover {
+            background: #1f3810;
+        }
+        .coupon-input-group button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .applied-coupon {
+            background: #10b981;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+        .applied-coupon .remove-coupon {
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 0 5px;
+        }
+        .coupon-message {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        .coupon-message.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .coupon-message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #dc2626;
+        }
+        .summary-row.discount {
+            color: #10b981;
+        }
     </style>
 
     <div class="custom-checkout-wrapper">
@@ -257,14 +332,13 @@ function render_custom_checkout() {
                             <input type="date" name="delivery_date" id="delivery_date" required min="<?php echo date('Y-m-d'); ?>">
                         </div>
 
-
                         <div class="form-group">
                             <label>Delivery time <span class="required">*</span></label>
                             <input type="time" name="delivery_time" id="delivery_time" required min="07:00" max="23:00">
                         </div>
                     </div>
 
-                    <!-- Branch Selection (for delivery only) -->
+                    <!-- Branch Selection -->
                     <div class="checkout-section" id="branch-section" style="margin-top: 20px;">
                         <div class="section-title">🏢 Select Branch</div>
                         <div class="form-group">
@@ -317,7 +391,7 @@ function render_custom_checkout() {
                             </label>
                         </div>
 
-                        <!-- VAT Fields (hidden by default) -->
+                        <!-- VAT Fields -->
                         <div id="vat-fields" class="hidden">
                             <div class="form-group">
                                 <label>Company name <span class="required">*</span></label>
@@ -358,7 +432,6 @@ function render_custom_checkout() {
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                             <div class="form-group">
                                 <label>Town / City <span class="required">*</span></label>
-                                
                                 <select name="city" id="city" required>
                                     <option value="PASAY">PASAY</option>
                                     <option value="PARANAQUE">PARANAQUE</option>
@@ -395,7 +468,7 @@ function render_custom_checkout() {
                             </div>
                         </div>
 
-                        <!-- Distance Info (for delivery) -->
+                        <!-- Distance Info -->
                         <div class="delivery-info-box hidden" id="distance-info-box">
                             <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
                             <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">0</span></p>
@@ -413,14 +486,10 @@ function render_custom_checkout() {
                             </label>
                             <div class="bank-transfer-info" style="color: #666; font-size: 14px; margin-left: 25px; margin-top: 5px;">
                                 <p>Online Payment (GCash, BDO, BPI):</p>
-
                                 <p>Pay ahead via bank transfer or GCash</p>
-
                                 <p>Shipping fee is usually lower and fixed</p>
-
                                 <p>Faster and smoother delivery since no cash needed with rider</p>
                                 <p>Confirm payment by sending transfer slip po</p>
-
                                 <p>If you want faster delivery and less hassle, online payment is best po. But if you prefer paying cash, COD is available too.</p>
                             </div>
                         </div>
@@ -432,12 +501,9 @@ function render_custom_checkout() {
                             </label>
                             <div class="cod-info hidden" style="color: #666; font-size: 14px; margin-left: 25px; margin-top: 5px;">
                                 <p>𝗖𝗢𝗗 (Cash on Delivery):</p>
-
                                 <p>Pay the rider in cash upon delivery</p>
-
                                 <p>Shipping fee may be higher (+₱50 or more)</p>
                                 <p>Finding riders with cash can take longer, especially for orders ₱2,000+</p>
-
                                 <p>Slightly slower delivery sometimes po</p>
                             </div>
                         </div>
@@ -457,6 +523,23 @@ function render_custom_checkout() {
                     <div class="checkout-section" style="position: sticky; top: 20px;">
                         <div class="section-title">📋 Order summary</div>
 
+                        <!-- COUPON SECTION -->
+                        <div class="coupon-section">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                                <span style="font-size: 20px;">🎟️</span>
+                                <strong style="font-size: 16px;">Have a coupon code?</strong>
+                            </div>
+                            <p style="color: #666; font-size: 13px; margin: 5px 0 10px 0;">Enter your code below to get discount</p>
+                            
+                            <div class="coupon-input-group">
+                                <input type="text" id="coupon-code" placeholder="Enter coupon code" />
+                                <button type="button" id="apply-coupon-btn">Apply</button>
+                            </div>
+                            
+                            <div id="coupon-message"></div>
+                            <div id="applied-coupon-display"></div>
+                        </div>
+
                         <div id="order-items">
                             <?php
                             foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
@@ -464,7 +547,6 @@ function render_custom_checkout() {
                                 $product_id = apply_filters('woocommerce_cart_item_product_id', $cart_item['product_id'], $cart_item, $cart_item_key);
                                 
                                 if ($_product && $_product->exists() && $cart_item['quantity'] > 0) {
-                                    $product_permalink = apply_filters('woocommerce_cart_item_permalink', $_product->is_visible() ? $_product->get_permalink($cart_item) : '', $cart_item, $cart_item_key);
                                     ?>
                                     <div class="order-item">
                                         <img src="<?php echo esc_url(wp_get_attachment_image_url($_product->get_image_id(), 'thumbnail')); ?>" alt="<?php echo esc_attr($_product->get_name()); ?>">
@@ -472,7 +554,6 @@ function render_custom_checkout() {
                                             <div class="order-item-name"><?php echo wp_kses_post($_product->get_name()); ?></div>
                                             <div class="order-item-quantity">Quantity: <?php echo $cart_item['quantity']; ?></div>
                                             <?php
-                                            // Display variations
                                             if (!empty($cart_item['variation'])) {
                                                 echo '<div class="order-item-meta" style="font-size: 12px; color: #666;">';
                                                 foreach ($cart_item['variation'] as $key => $value) {
@@ -497,6 +578,10 @@ function render_custom_checkout() {
                                 <span>Subtotal</span>
                                 <span id="subtotal">₱<?php echo number_format(WC()->cart->get_subtotal(), 2); ?></span>
                             </div>
+                            <div class="summary-row discount hidden" id="discount-row">
+                                <span>Discount (<span id="coupon-code-display"></span>)</span>
+                                <span id="discount-amount">-₱0.00</span>
+                            </div>
                             <div class="summary-row">
                                 <span>Shipping Fee</span>
                                 <span id="shipping-fee">₱0.00</span>
@@ -506,6 +591,8 @@ function render_custom_checkout() {
                                 <span id="total">₱<?php echo number_format(WC()->cart->get_subtotal(), 2); ?></span>
                             </div>
                         </div>
+
+                        <input type="hidden" name="applied_coupon" id="applied-coupon-input" value="">
 
                         <button type="submit" class="place-order-btn" id="place-order-btn">
                             Place Order
@@ -525,8 +612,10 @@ function render_custom_checkout() {
     jQuery(document).ready(function($) {
         let destinationAutocomplete;
         let selectedPlace = null;
-        let branchLocation = {lat: 14.6175959, lng: 120.9837713}; // Default branch
+        let branchLocation = {lat: 14.6175959, lng: 120.9837713};
         let calculatedShippingFee = 0;
+        let appliedCouponCode = '';
+        let discountAmount = 0;
         
         // Initialize Google Maps Autocomplete
         function initAutocomplete() {
@@ -559,9 +648,9 @@ function render_custom_checkout() {
             }
         }
         
-        // Calculate distance using Haversine formula
+        // Calculate distance
         function calculateDistance(destLat, destLng) {
-            const R = 6371; // Earth radius in km
+            const R = 6371;
             const dLat = (destLat - branchLocation.lat) * Math.PI / 180;
             const dLon = (destLng - branchLocation.lng) * Math.PI / 180;
             
@@ -575,15 +664,13 @@ function render_custom_checkout() {
             $('#distance-display').text(distance.toFixed(2));
             $('#distance-info-box').removeClass('hidden');
             
-            // Call API to get shipping fee
             getShippingFee(distance);
         }
         
-        // Get shipping fee from API
+        // Get shipping fee
         function getShippingFee(distance) {
             const paymentMethod = $('input[name="payment_method"]:checked').val();
             const cashOnDelivery = (paymentMethod === 'cod') ? 1 : 0;
-            // get delivery time to determine night shift
             const deliveryTime = $('#delivery_time').val();
             const deliveryDate = $('#delivery_date').val();
             const currentHour = new Date(deliveryDate + 'T' + deliveryTime).getHours();
@@ -600,8 +687,6 @@ function render_custom_checkout() {
                     raining: 0
                 },
                 success: function(response) {
-                    console.log('response', response);
-                    // Adjust based on your API response structure
                     calculatedShippingFee = response.data.total_delivery_fee || 0;
                     updateOrderTotal();
                 },
@@ -612,14 +697,108 @@ function render_custom_checkout() {
             });
         }
         
+        // Apply Coupon
+        $('#apply-coupon-btn').click(function() {
+            const couponCode = $('#coupon-code').val().trim();
+            
+            if (!couponCode) {
+                showCouponMessage('Please enter a coupon code', 'error');
+                return;
+            }
+            
+            $(this).prop('disabled', true).text('Applying...');
+            
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'apply_coupon_custom',
+                    coupon_code: couponCode
+                },
+                success: function(response) {
+                    if (response.success) {
+                        appliedCouponCode = couponCode;
+                        discountAmount = response.data.discount;
+                        
+                        $('#applied-coupon-input').val(couponCode);
+                        $('#coupon-code').val('').prop('disabled', true);
+                        
+                        showAppliedCoupon(couponCode);
+                        showCouponMessage(response.data.message, 'success');
+                        updateOrderTotal();
+                    } else {
+                        showCouponMessage(response.data.message, 'error');
+                    }
+                },
+                error: function() {
+                    showCouponMessage('Error applying coupon. Please try again.', 'error');
+                },
+                complete: function() {
+                    $('#apply-coupon-btn').prop('disabled', false).text('Apply');
+                }
+            });
+        });
+        
+        // Remove Coupon
+        $(document).on('click', '.remove-coupon', function() {
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'remove_coupon_custom',
+                    coupon_code: appliedCouponCode
+                },
+                success: function(response) {
+                    appliedCouponCode = '';
+                    discountAmount = 0;
+                    
+                    $('#applied-coupon-input').val('');
+                    $('#coupon-code').prop('disabled', false);
+                    $('#applied-coupon-display').empty();
+                    $('#coupon-message').empty();
+                    
+                    updateOrderTotal();
+                }
+            });
+        });
+        
+        // Show Coupon Message
+        function showCouponMessage(message, type) {
+            $('#coupon-message').html('<div class="coupon-message ' + type + '">' + message + '</div>');
+            
+            setTimeout(function() {
+                $('#coupon-message').fadeOut(function() {
+                    $(this).empty().show();
+                });
+            }, 5000);
+        }
+        
+        // Show Applied Coupon
+        function showAppliedCoupon(code) {
+            const html = '<div class="applied-coupon">' +
+                '<span>✓ Coupon applied: <strong>' + code + '</strong></span>' +
+                '<button type="button" class="remove-coupon">✕</button>' +
+                '</div>';
+            $('#applied-coupon-display').html(html);
+        }
+        
         // Update order total
         function updateOrderTotal() {
             const subtotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
             const shippingFee = calculatedShippingFee;
-            const total = subtotal + shippingFee;
+            const total = subtotal - discountAmount + shippingFee;
             
             $('#shipping-fee').text('₱' + shippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
             $('#shipping-fee-display').text('₱' + shippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
+            
+            if (discountAmount > 0) {
+                $('#discount-row').removeClass('hidden');
+                $('#coupon-code-display').text(appliedCouponCode);
+                $('#discount-amount').text('-₱' + discountAmount.toLocaleString('en-US', {minimumFractionDigits: 2}));
+            } else {
+                $('#discount-row').addClass('hidden');
+            }
+            
             $('#total').text('₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2}));
         }
         
@@ -627,9 +806,8 @@ function render_custom_checkout() {
         $('input[name="delivery_type"]').change(function() {
             if ($(this).val() === 'delivery') {
                 $('#branch-section').removeClass('hidden');
-                calculatedShippingFee = 0; // Reset until address is selected
+                calculatedShippingFee = 0;
                 
-                // If address already selected, calculate
                 if ($('#address_lat').val() && $('#address_lng').val()) {
                     calculateDistance(
                         parseFloat($('#address_lat').val()),
@@ -648,7 +826,6 @@ function render_custom_checkout() {
             branchLocation.lat = parseFloat(selectedOption.data('lat'));
             branchLocation.lng = parseFloat(selectedOption.data('lng'));
             
-            // Recalculate if address already selected
             if ($('#address_lat').val() && $('#address_lng').val()) {
                 calculateDistance(
                     parseFloat($('#address_lat').val()),
@@ -659,7 +836,6 @@ function render_custom_checkout() {
         
         // Payment method change
         $('input[name="payment_method"]').change(function() {
-            // Recalculate shipping fee if delivery selected
             if ($('input[name="delivery_type"]:checked').val() === 'delivery' && 
                 $('#address_lat').val() && $('#address_lng').val()) {
                 calculateDistance(
@@ -673,7 +849,6 @@ function render_custom_checkout() {
         $('#custom-checkout-form').submit(function(e) {
             e.preventDefault();
             
-            // Validation
             if ($('input[name="delivery_type"]:checked').val() === 'delivery') {
                 if (!$('#branch-select').val()) {
                     alert('Please select a branch');
@@ -688,10 +863,10 @@ function render_custom_checkout() {
             
             $('#place-order-btn').prop('disabled', true).text('Processing...');
             
-            // Submit via AJAX
             let formData = $(this).serialize();
             formData += '&action=process_custom_checkout';
             formData += '&shipping_fee=' + calculatedShippingFee;
+            formData += '&discount_amount=' + discountAmount;
             
             $.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
@@ -723,7 +898,6 @@ function render_custom_checkout() {
             if ($(this).val() === 'cod') {
                 $('.cod-info').removeClass('hidden');
                 $('.bank-transfer-info').addClass('hidden');
-
             } else if ($(this).val() === 'bank_transfer') {
                 $('.cod-info').addClass('hidden');
                 $('.bank-transfer-info').removeClass('hidden');
@@ -752,20 +926,58 @@ function render_custom_checkout() {
     <?php
 }
 
+// AJAX handler for applying coupon
+add_action('wp_ajax_apply_coupon_custom', 'apply_coupon_custom');
+add_action('wp_ajax_nopriv_apply_coupon_custom', 'apply_coupon_custom');
+function apply_coupon_custom() {
+    $coupon_code = sanitize_text_field($_POST['coupon_code']);
+    
+    if (empty($coupon_code)) {
+        wp_send_json_error(array('message' => 'Please enter a coupon code'));
+    }
+    
+    $coupon = new WC_Coupon($coupon_code);
+    
+    if (!$coupon->is_valid()) {
+        wp_send_json_error(array('message' => 'Invalid coupon code'));
+    }
+    
+    // Apply coupon to cart
+    WC()->cart->add_discount($coupon_code);
+    
+    // Calculate discount
+    $discount = WC()->cart->get_discount_total();
+    
+    wp_send_json_success(array(
+        'message' => 'Coupon applied successfully!',
+        'discount' => $discount
+    ));
+}
+
+// AJAX handler for removing coupon
+add_action('wp_ajax_remove_coupon_custom', 'remove_coupon_custom');
+add_action('wp_ajax_nopriv_remove_coupon_custom', 'remove_coupon_custom');
+function remove_coupon_custom() {
+    $coupon_code = sanitize_text_field($_POST['coupon_code']);
+    
+    if (!empty($coupon_code)) {
+        WC()->cart->remove_coupon($coupon_code);
+    }
+    
+    wp_send_json_success();
+}
+
 // 3. AJAX handler for processing custom checkout
 add_action('wp_ajax_process_custom_checkout', 'process_custom_checkout');
 add_action('wp_ajax_nopriv_process_custom_checkout', 'process_custom_checkout');
 function process_custom_checkout() {
     try {
-        // Create order
         $order = wc_create_order();
         
-        // Add products from cart
         foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
             $order->add_product($cart_item['data'], $cart_item['quantity']);
         }
         
-        // Add billing info
         $order->set_billing_first_name(sanitize_text_field($_POST['first_name']));
         $order->set_billing_last_name(sanitize_text_field($_POST['last_name']));
         $order->set_billing_email(sanitize_email($_POST['email']));
@@ -778,7 +990,6 @@ function process_custom_checkout() {
         $order->set_billing_country(sanitize_text_field($_POST['country']));
         $order->set_billing_company(sanitize_text_field($_POST['company']));
         
-        // Add shipping info
         $order->set_shipping_first_name(sanitize_text_field($_POST['first_name']));
         $order->set_shipping_last_name(sanitize_text_field($_POST['last_name']));
         $order->set_shipping_address_1(sanitize_text_field($_POST['address']));
@@ -788,7 +999,6 @@ function process_custom_checkout() {
         $order->set_shipping_postcode(sanitize_text_field($_POST['postcode']));
         $order->set_shipping_country(sanitize_text_field($_POST['country']));
         
-        // Add custom meta data
         $order->update_meta_data('_delivery_type', sanitize_text_field($_POST['delivery_type']));
         $order->update_meta_data('_delivery_date', sanitize_text_field($_POST['delivery_date']));
         $order->update_meta_data('_delivery_time', sanitize_text_field($_POST['delivery_time']));
@@ -799,7 +1009,6 @@ function process_custom_checkout() {
             $order->update_meta_data('_delivery_latitude', sanitize_text_field($_POST['address_lat']));
             $order->update_meta_data('_delivery_longitude', sanitize_text_field($_POST['address_lng']));
             
-            // Add shipping fee
             $shipping_fee = floatval($_POST['shipping_fee']);
             if ($shipping_fee > 0) {
                 $item = new WC_Order_Item_Shipping();
@@ -810,21 +1019,25 @@ function process_custom_checkout() {
             }
         }
         
-        // Set payment method
+        // Apply coupon if exists
+        if (!empty($_POST['applied_coupon'])) {
+            $coupon_code = sanitize_text_field($_POST['applied_coupon']);
+            $discount_amount = floatval($_POST['discount_amount']);
+            
+            $order->apply_coupon($coupon_code);
+            $order->update_meta_data('_coupon_code', $coupon_code);
+            $order->update_meta_data('_discount_amount', $discount_amount);
+        }
+        
         $payment_method = sanitize_text_field($_POST['payment_method']);
         $order->set_payment_method($payment_method);
         $order->set_payment_method_title($payment_method === 'cod' ? 'Cash on Delivery' : 'Direct Bank Transfer');
         
-        // Calculate totals
         $order->calculate_totals();
-        
-        // Save order
         $order->save();
         
-        // Empty cart
         WC()->cart->empty_cart();
         
-        // Send response
         wp_send_json_success(array(
             'redirect' => $order->get_checkout_order_received_url()
         ));
@@ -836,7 +1049,7 @@ function process_custom_checkout() {
     }
 }
 
-// 4. Display custom checkout info in admin order page
+// 4. Display custom checkout info in admin
 add_action('woocommerce_admin_order_data_after_billing_address', 'display_custom_checkout_info_in_admin');
 function display_custom_checkout_info_in_admin($order) {
     $delivery_type = $order->get_meta('_delivery_type');
@@ -846,6 +1059,8 @@ function display_custom_checkout_info_in_admin($order) {
     $lat = $order->get_meta('_delivery_latitude');
     $lng = $order->get_meta('_delivery_longitude');
     $payment_method = $order->get_payment_method();
+    $coupon_code = $order->get_meta('_coupon_code');
+    $discount_amount = $order->get_meta('_discount_amount');
     
     echo '<div class="custom-checkout-info" style="padding: 15px; background: #f0f9ff; margin-top: 15px; border-radius: 4px;">';
     echo '<h3 style="margin-top: 0;">🚚 Delivery Information</h3>';
@@ -870,9 +1085,12 @@ function display_custom_checkout_info_in_admin($order) {
         echo '<p><strong>Location:</strong> <a href="https://www.google.com/maps?q=' . $lat . ',' . $lng . '" target="_blank">View on Google Maps</a></p>';
     }
     
+    if ($coupon_code) {
+        echo '<p><strong>Coupon:</strong> ' . esc_html($coupon_code) . ' (-₱' . number_format($discount_amount, 2) . ')</p>';
+    }
+    
     echo '</div>';
     
-    // Bank Transfer Information (if payment method is bank transfer)
     if ($payment_method === 'bank_transfer' || $payment_method === 'bacs') {
         echo '<div class="bank-transfer-info" style="padding: 15px; background: #f0fdf4; margin-top: 15px; border-radius: 4px; border-left: 4px solid #10b981;">';
         echo '<h3 style="margin-top: 0;">💳 Bank Transfer Details</h3>';
@@ -902,7 +1120,6 @@ function display_custom_checkout_info_in_admin($order) {
         echo '</div>';
     }
     
-    // VAT Invoice info
     $need_vat = $order->get_meta('_need_vat_invoice');
     if ($need_vat === 'yes') {
         $vat_company = $order->get_meta('_vat_company_name');
@@ -933,70 +1150,50 @@ add_filter('woocommerce_email_order_meta_fields', 'add_custom_fields_to_order_em
 function add_custom_fields_to_order_email($fields, $sent_to_admin, $order) {
     $custom_fields = array();
     
-    // Delivery Information
     $delivery_type = $order->get_meta('_delivery_type');
     $delivery_date = $order->get_meta('_delivery_date');
     $delivery_time = $order->get_meta('_delivery_time');
     $branch = $order->get_meta('_selected_branch');
+    $coupon_code = $order->get_meta('_coupon_code');
+    $discount_amount = $order->get_meta('_discount_amount');
     
     if ($delivery_type) {
-        $custom_fields[] = array(
-            'label' => 'Delivery Type',
-            'value' => ucfirst($delivery_type)
-        );
+        $custom_fields[] = array('label' => 'Delivery Type', 'value' => ucfirst($delivery_type));
     }
     
     if ($delivery_date) {
-        $custom_fields[] = array(
-            'label' => 'Delivery Date',
-            'value' => $delivery_date
-        );
+        $custom_fields[] = array('label' => 'Delivery Date', 'value' => $delivery_date);
     }
     
     if ($delivery_time) {
-        $custom_fields[] = array(
-            'label' => 'Delivery Time',
-            'value' => $delivery_time
-        );
+        $custom_fields[] = array('label' => 'Delivery Time', 'value' => $delivery_time);
     }
     
     if ($branch) {
-        $custom_fields[] = array(
-            'label' => 'Selected Branch',
-            'value' => ucfirst($branch)
-        );
+        $custom_fields[] = array('label' => 'Selected Branch', 'value' => ucfirst($branch));
     }
     
-    // VAT Invoice Information
+    if ($coupon_code) {
+        $custom_fields[] = array('label' => 'Coupon Applied', 'value' => $coupon_code . ' (-₱' . number_format($discount_amount, 2) . ')');
+    }
+    
     $need_vat = $order->get_meta('_need_vat_invoice');
     if ($need_vat === 'yes') {
-        $custom_fields[] = array(
-            'label' => 'VAT Invoice',
-            'value' => 'Required'
-        );
+        $custom_fields[] = array('label' => 'VAT Invoice', 'value' => 'Required');
         
         $vat_company = $order->get_meta('_vat_company_name');
         if ($vat_company) {
-            $custom_fields[] = array(
-                'label' => 'Company Name',
-                'value' => $vat_company
-            );
+            $custom_fields[] = array('label' => 'Company Name', 'value' => $vat_company);
         }
         
         $vat_address = $order->get_meta('_vat_company_address');
         if ($vat_address) {
-            $custom_fields[] = array(
-                'label' => 'Company Address',
-                'value' => $vat_address
-            );
+            $custom_fields[] = array('label' => 'Company Address', 'value' => $vat_address);
         }
         
         $vat_tax_code = $order->get_meta('_vat_tax_code');
         if ($vat_tax_code) {
-            $custom_fields[] = array(
-                'label' => 'Tax Code',
-                'value' => $vat_tax_code
-            );
+            $custom_fields[] = array('label' => 'Tax Code', 'value' => $vat_tax_code);
         }
     }
     
@@ -1006,7 +1203,6 @@ function add_custom_fields_to_order_email($fields, $sent_to_admin, $order) {
 // 6. Add custom content to order emails
 add_action('woocommerce_email_before_order_table', 'add_custom_content_to_order_email', 20, 4);
 function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, $email) {
-    // Only add to customer emails
     if ($sent_to_admin) {
         return;
     }
@@ -1016,25 +1212,19 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
     $delivery_time = $order->get_meta('_delivery_time');
     $branch = $order->get_meta('_selected_branch');
     $need_vat = $order->get_meta('_need_vat_invoice');
+    $coupon_code = $order->get_meta('_coupon_code');
+    $discount_amount = $order->get_meta('_discount_amount');
     
     if ($plain_text) {
-        // Plain text email
         echo "\n========================================\n";
         echo "DELIVERY INFORMATION\n";
         echo "========================================\n\n";
         
-        if ($delivery_type) {
-            echo "Delivery Type: " . ucfirst($delivery_type) . "\n";
-        }
-        if ($delivery_date) {
-            echo "Delivery Date: " . $delivery_date . "\n";
-        }
-        if ($delivery_time) {
-            echo "Delivery Time: " . $delivery_time . "\n";
-        }
-        if ($branch && $delivery_type === 'delivery') {
-            echo "Branch: " . ucfirst($branch) . "\n";
-        }
+        if ($delivery_type) echo "Delivery Type: " . ucfirst($delivery_type) . "\n";
+        if ($delivery_date) echo "Delivery Date: " . $delivery_date . "\n";
+        if ($delivery_time) echo "Delivery Time: " . $delivery_time . "\n";
+        if ($branch && $delivery_type === 'delivery') echo "Branch: " . ucfirst($branch) . "\n";
+        if ($coupon_code) echo "Coupon: " . $coupon_code . " (-₱" . number_format($discount_amount, 2) . ")\n";
         
         if ($need_vat === 'yes') {
             echo "\n========================================\n";
@@ -1053,7 +1243,6 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
         echo "\n";
         
     } else {
-        // HTML email
         ?>
         <div style="margin-bottom: 40px; padding: 20px; background-color: #f7fafc; border-radius: 8px; border-left: 4px solid #4299e1;">
             <h2 style="color: #2d3748; margin-top: 0; font-size: 20px;">🚚 Delivery Information</h2>
@@ -1072,6 +1261,10 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
             
             <?php if ($branch && $delivery_type === 'delivery'): ?>
                 <p style="margin: 8px 0;"><strong>Branch:</strong> <?php echo esc_html(ucfirst($branch)); ?></p>
+            <?php endif; ?>
+            
+            <?php if ($coupon_code): ?>
+                <p style="margin: 8px 0;"><strong>Coupon:</strong> <?php echo esc_html($coupon_code); ?> (-₱<?php echo number_format($discount_amount, 2); ?>)</p>
             <?php endif; ?>
         </div>
         
@@ -1102,3 +1295,4 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
     }
 }
 
+?>

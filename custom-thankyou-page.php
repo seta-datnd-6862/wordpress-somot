@@ -333,13 +333,17 @@ function render_custom_thank_you_page($order) {
             color: #92400e;
             margin-top: 0;
         }
+
+        .color-white {
+            color: white !important;
+        }
     </style>
 
     <div class="custom-thank-you-wrapper">
         <!-- Success Header -->
         <div class="success-header">
             <div class="success-icon">✅</div>
-            <h1>Thank you for your order!</h1>
+            <h1 class="color-white">Thank you for your order!</h1>
             <p>We've received your order and will process it soon.</p>
             <div class="order-number">Order #<?php echo $order_id; ?></div>
         </div>
@@ -431,9 +435,9 @@ function render_custom_thank_you_page($order) {
             <div class="bank-accounts">
                 <!-- BDO Account -->
                 <div class="bank-card">
-                    <h4>🏦 BDO Bank</h4>
+                    <h4 class="color-white">🏦 BDO Bank</h4>
                     <div class="bank-info">
-                        <p><strong>Account Name:</strong><br>Kha V Ngo</p>
+                        <p><strong class="color-white">Account Name:</strong><br>Kha V Ngo</p>
                         <div class="account-number">007540182560</div>
                         <div class="qr-code-container">
                             <p style="margin: 0 0 10px 0; font-size: 12px;">Scan QR Code</p>
@@ -444,9 +448,9 @@ function render_custom_thank_you_page($order) {
                 
                 <!-- GCash Account -->
                 <div class="bank-card">
-                    <h4>📱 GCash</h4>
+                    <h4 class="color-white">📱 GCash</h4>
                     <div class="bank-info">
-                        <p><strong>Account Name:</strong><br>V**BI*H N</p>
+                        <p><strong class="color-white">Account Name:</strong><br>V**BI*H N</p>
                         <div class="account-number">09950979419</div>
                         <div class="qr-code-container">
                             <p style="margin: 0 0 10px 0; font-size: 12px;">Scan QR Code</p>
@@ -617,14 +621,14 @@ function render_custom_thank_you_page($order) {
                 <p style="margin-bottom: 15px;"><strong>Choose Payment Method:</strong></p>
                 
                 <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #2563eb;">🏦 BDO Bank</h4>
+                    <h4 style="margin: 0 0 10px 0;">🏦 BDO Bank</h4>
                     <p style="margin: 5px 0;"><strong>Account:</strong> 007540182560</p>
                     <p style="margin: 5px 0;"><strong>Name:</strong> Kha V Ngo</p>
                     <img src="https://so-mot.com/wp-content/uploads/2025/10/BDO-007540182560-Kha-V-Ngo.jpg" alt="BDO QR" style="max-width: 200px; margin-top: 10px; border-radius: 8px;">
                 </div>
                 
                 <div style="border: 2px solid #e2e8f0; border-radius: 8px; padding: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #10b981;">📱 GCash</h4>
+                    <h4 style="margin: 0 0 10px 0;">📱 GCash</h4>
                     <p style="margin: 5px 0;"><strong>Number:</strong> 09950979419</p>
                     <p style="margin: 5px 0;"><strong>Name:</strong> V**BI*H N</p>
                     <img src="https://so-mot.com/wp-content/uploads/2025/10/Gcash-09950979419-V-BI-H-N.jpg" alt="GCash QR" style="max-width: 200px; margin-top: 10px; border-radius: 8px;">
