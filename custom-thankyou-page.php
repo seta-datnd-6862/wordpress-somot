@@ -1,3 +1,4 @@
+<?php
 // ========================================
 // CUSTOM THANK YOU PAGE
 // ========================================
@@ -53,7 +54,7 @@ function hide_default_woocommerce_thankyou_sections() {
     <?php
 }
 
-// 3. Render custom thank you page
+// 5. Render custom thank you page
 function render_custom_thank_you_page($order) {
     $order_id = $order->get_id();
     $order_status = $order->get_status();
@@ -66,6 +67,9 @@ function render_custom_thank_you_page($order) {
     $delivery_time = $order->get_meta('_delivery_time');
     $branch = $order->get_meta('_selected_branch');
     $need_vat = $order->get_meta('_need_vat_invoice');
+    
+    // Get coupon codes
+    $coupon_codes = $order->get_coupon_codes();
     
     ?>
     <style>
@@ -157,6 +161,18 @@ function render_custom_thank_you_page($order) {
             color: #2d3748;
             font-weight: 600;
             text-align: right;
+        }
+        
+        .coupon-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-right: 8px;
+            margin-bottom: 8px;
         }
         
         .bank-transfer-section {
@@ -337,6 +353,68 @@ function render_custom_thank_you_page($order) {
         .color-white {
             color: white !important;
         }
+
+        /* File upload styles */
+        .file-upload-area {
+            border: 2px dashed #163917;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            background: #f8fafb;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 15px 0;
+        }
+
+        .file-upload-area:hover {
+            background: #f0f4f8;
+            border-color: #0f2910;
+        }
+
+        .file-upload-area.drag-over {
+            background: #e8f5e9;
+            border-color: #10b981;
+        }
+
+        .file-input-hidden {
+            display: none;
+        }
+
+        .file-preview {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            border-left: 4px solid #10b981;
+        }
+
+        .file-name {
+            color: #2d3748;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .file-remove-btn {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .file-remove-btn:hover {
+            background: #dc2626;
+        }
+
+        .modal-button-disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+        }
     </style>
 
     <div class="custom-thank-you-wrapper">
@@ -378,6 +456,18 @@ function render_custom_thank_you_page($order) {
                 <span class="info-label">Total Amount</span>
                 <span class="info-value" style="color: #163917; font-size: 20px;">₱<?php echo number_format($total, 2); ?></span>
             </div>
+
+            <!-- Coupons Section -->
+            <?php if (!empty($coupon_codes)): ?>
+            <div class="info-row" style="flex-direction: column; align-items: flex-start;">
+                <span class="info-label">Applied Coupons</span>
+                <div style="margin-top: 10px;">
+                    <?php foreach ($coupon_codes as $coupon_code): ?>
+                        <span class="coupon-badge"><?php echo esc_html($coupon_code); ?></span>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
 
         <!-- Delivery Information -->
@@ -633,20 +723,45 @@ function render_custom_thank_you_page($order) {
                     <p style="margin: 5px 0;"><strong>Name:</strong> V**BI*H N</p>
                     <img src="https://so-mot.com/wp-content/uploads/2025/10/Gcash-09950979419-V-BI-H-N.jpg" alt="GCash QR" style="max-width: 200px; margin-top: 10px; border-radius: 8px;">
                 </div>
-                
-                <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin-top: 15px;">
-                    <p style="margin: 0; font-size: 13px; color: #92400e;">
-                        <strong>📸 After payment:</strong> Please send your payment proof to confirm your order. Include Order #<?php echo $order_id; ?> in your message.
-                    </p>
-                </div>
             </div>
             <?php endif; ?>
+
+            <!-- ========== PHẦN THÊM MỚI: UPLOAD FILE ========== -->
+            <div style="margin: 20px 0; border-top: 2px solid #e2e8f0; padding-top: 20px;">
+                <p style="margin: 0 0 10px 0; font-weight: 600; color: #2d3748;">📸 Upload Payment Proof</p>
+                <p style="margin: 0 0 15px 0; font-size: 13px; color: #718096;">Upload your payment screenshot or receipt (PNG, JPG, PDF)</p>
+                
+                <!-- Drag & Drop Area -->
+                <div id="file-upload-area" style="border: 2px dashed #163917; border-radius: 8px; padding: 30px; text-align: center; background: #f8fafb; cursor: pointer; transition: all 0.3s;">
+                    <p style="margin: 0 0 10px 0; font-size: 24px;">📁</p>
+                    <p style="margin: 0 0 5px 0; color: #2d3748; font-weight: 600;">Drag & Drop your file here</p>
+                    <p style="margin: 0; color: #718096; font-size: 13px;">or click to browse</p>
+                </div>
+                
+                <!-- Hidden File Input -->
+                <input type="file" id="payment-proof-file" class="file-input-hidden" accept=".png,.jpg,.jpeg,.pdf" style="display: none;">
+                
+                <!-- File Preview -->
+                <div id="file-preview" style="margin-top: 15px; padding: 15px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #10b981; display: none;">
+                    <p style="margin: 0 0 10px 0; font-size: 14px; color: #2d3748;">
+                        <strong>✅ File selected:</strong><br>
+                        <span id="file-name-display" style="color: #10b981; font-weight: 600; word-break: break-all;"></span>
+                    </p>
+                    <button type="button" onclick="removeFile()" style="padding: 8px 16px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                        ❌ Remove File
+                    </button>
+                </div>
+
+                <!-- Error Message -->
+                <div id="file-error" style="margin-top: 15px; padding: 12px 15px; background: #fee2e2; border-radius: 8px; border-left: 4px solid #ef4444; display: none; color: #991b1b; font-size: 13px;"></div>
+            </div>
+            <!-- ========== HẾT PHẦN THÊM MỚI ========== -->
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px;">
-                <button onclick="closePaymentModal()" style="padding: 12px; border: 2px solid #e2e8f0; background: #163917; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                <button onclick="closePaymentModal()" style="padding: 12px; border: 2px solid #e2e8f0; background: white; color: #163917; border-radius: 8px; cursor: pointer; font-weight: 600;">
                     Close
                 </button>
-                <button onclick="markAsPaid(<?php echo $order_id; ?>)" style="padding: 12px; background: #163917; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                <button id="paid-button" onclick="markAsPaid(<?php echo $order_id; ?>)" style="padding: 12px; background: #bfdbfe; color: #1e40af; border: none; border-radius: 8px; cursor: not-allowed; font-weight: 600; opacity: 0.5;" disabled>
                     I've Paid
                 </button>
             </div>
@@ -654,32 +769,159 @@ function render_custom_thank_you_page($order) {
     </div>
     
     <script>
-    function showPaymentModal() {
-        document.getElementById('payment-modal').style.display = 'flex';
+    // File upload handler
+    const uploadArea = document.getElementById('file-upload-area');
+    const fileInput = document.getElementById('payment-proof-file');
+    const filePreview = document.getElementById('file-preview');
+    const fileNameDisplay = document.getElementById('file-name-display');
+    const fileError = document.getElementById('file-error');
+    const paidButton = document.getElementById('paid-button');
+    let selectedFile = null;
+
+    // Click to browse
+    uploadArea.addEventListener('click', () => fileInput.click());
+
+    // Drag over
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = '#e8f5e9';
+        uploadArea.style.borderColor = '#10b981';
+    });
+
+    // Drag leave
+    uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.background = '#f8fafb';
+        uploadArea.style.borderColor = '#163917';
+    });
+
+    // Drop
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.background = '#f8fafb';
+        uploadArea.style.borderColor = '#163917';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileSelect(files[0]);
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleFileSelect(e.target.files[0]);
+        }
+    });
+
+    // Handle file selection
+    function handleFileSelect(file) {
+        fileError.style.display = 'none';
+        
+        // Validate file type
+        const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf'];
+        if (!allowedTypes.includes(file.type)) {
+            showError('Invalid file type. Only PNG, JPG, and PDF are allowed.');
+            return;
+        }
+        
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        if (file.size > maxSize) {
+            showError('File size must be less than 5MB.');
+            return;
+        }
+        
+        selectedFile = file;
+        fileNameDisplay.textContent = file.name;
+        filePreview.style.display = 'block';
+        
+        // Enable paid button
+        paidButton.disabled = false;
+        paidButton.style.opacity = '1';
+        paidButton.style.cursor = 'pointer';
+        paidButton.style.background = '#163917';
+        paidButton.style.color = 'white';
     }
-    
-    function closePaymentModal() {
-        document.getElementById('payment-modal').style.display = 'none';
+
+    // Remove file
+    function removeFile() {
+        selectedFile = null;
+        fileInput.value = '';
+        filePreview.style.display = 'none';
+        fileError.style.display = 'none';
+        
+        // Disable paid button
+        paidButton.disabled = true;
+        paidButton.style.opacity = '0.5';
+        paidButton.style.cursor = 'not-allowed';
+        paidButton.style.background = '#bfdbfe';
+        paidButton.style.color = '#1e40af';
     }
-    
+
+    // Show error
+    function showError(message) {
+        fileError.textContent = '❌ ' + message;
+        fileError.style.display = 'block';
+        removeFile();
+    }
+
+    // Mark as paid
     function markAsPaid(orderId) {
-        if (confirm('Have you completed the payment and sent the proof?')) {
-            alert('Thank you! We will verify your payment and process your order shortly.');
-            closePaymentModal();
-            // Optionally send AJAX to update order note
+        if (!selectedFile) {
+            alert('Please upload payment proof first.');
+            return;
+        }
+        
+        if (confirm('Have you completed the payment and uploaded the proof?')) {
+            paidButton.disabled = true;
+            paidButton.textContent = 'Processing...';
+            
+            const formData = new FormData();
+            formData.append('action', 'upload_payment_proof');
+            formData.append('order_id', orderId);
+            formData.append('payment_file', selectedFile);
+            
             jQuery.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
                 type: 'POST',
-                data: {
-                    action: 'mark_order_as_paid',
-                    order_id: orderId
-                },
+                data: formData,
+                processData: false,
+                contentType: false,
                 success: function(response) {
-                    console.log('Payment marked');
+                    if (response.success) {
+                        alert('Thank you! We will verify your payment and process your order shortly.');
+                        closePaymentModal();
+                        removeFile();
+                        paidButton.textContent = "I've Paid";
+                    } else {
+                        alert(response.data || 'Error uploading file. Please try again.');
+                        paidButton.disabled = false;
+                        paidButton.textContent = "I've Paid";
+                    }
+                },
+                error: function() {
+                    alert('Error uploading file. Please try again.');
+                    paidButton.disabled = false;
+                    paidButton.textContent = "I've Paid";
                 }
             });
         }
     }
+
+    function showPaymentModal() {
+        document.getElementById('payment-modal').style.display = 'flex';
+    }
+
+    function closePaymentModal() {
+        document.getElementById('payment-modal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('payment-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePaymentModal();
+        }
+    });
     
     function cancelOrder(orderId) {
         if (confirm('Are you sure you want to cancel this order?')) {
@@ -802,4 +1044,63 @@ function cancel_customer_order_handler() {
     $order->update_status('cancelled', 'Order cancelled by customer.');
     
     wp_send_json_success(array('message' => 'Order cancelled successfully'));
+}
+
+// AJAX handler for uploading payment proof
+add_action('wp_ajax_upload_payment_proof', 'upload_payment_proof_handler');
+add_action('wp_ajax_nopriv_upload_payment_proof', 'upload_payment_proof_handler');
+function upload_payment_proof_handler() {
+    $order_id = intval($_POST['order_id']);
+    $order = wc_get_order($order_id);
+    
+    if (!$order) {
+        wp_send_json_error('Order not found');
+    }
+    
+    // Validate file upload
+    if (!isset($_FILES['payment_file'])) {
+        wp_send_json_error('No file uploaded');
+    }
+    
+    $file = $_FILES['payment_file'];
+    $allowed_types = array('image/png', 'image/jpeg', 'application/pdf');
+    
+    // Validate file type
+    if (!in_array($file['type'], $allowed_types)) {
+        wp_send_json_error('Invalid file type');
+    }
+    
+    // Validate file size (5MB max)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        wp_send_json_error('File size exceeds 5MB limit');
+    }
+    
+    // Create upload directory
+    $upload_dir = wp_upload_dir();
+    $payment_dir = $upload_dir['basedir'] . '/payment-proofs';
+    
+    if (!file_exists($payment_dir)) {
+        mkdir($payment_dir, 0755, true);
+    }
+    
+    // Generate unique filename
+    $file_ext = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filename = 'order_' . $order_id . '_' . time() . '.' . $file_ext;
+    $filepath = $payment_dir . '/' . $filename;
+    
+    // Move uploaded file
+    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+        $file_url = $upload_dir['baseurl'] . '/payment-proofs/' . $filename;
+        
+        // Save to order meta
+        $order->add_meta_data('_payment_proof_file', $file_url);
+        $order->save();
+        
+        // Add order note
+        $order->add_order_note('Payment proof uploaded: ' . $filename);
+        
+        wp_send_json_success('File uploaded successfully');
+    } else {
+        wp_send_json_error('Failed to upload file');
+    }
 }

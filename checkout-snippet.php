@@ -1,5 +1,4 @@
 <?php
-
 // ========================================
 // CUSTOM CHECKOUT PAGE WITH COUPON
 // ========================================
@@ -808,7 +807,6 @@ function render_custom_checkout() {
         // Delivery type change
         $('input[name="delivery_type"]').change(function() {
             if ($(this).val() === 'delivery') {
-                $('#branch-section').removeClass('hidden');
                 $('#delivery-address-fields').removeClass('hidden');
                 
                 // Make delivery fields required
@@ -823,7 +821,6 @@ function render_custom_checkout() {
                     );
                 }
             } else {
-                $('#branch-section').addClass('hidden');
                 $('#delivery-address-fields').addClass('hidden');
                 $('#distance-info-box').addClass('hidden');
                 
@@ -1312,4 +1309,3 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
     }
 }
 
-?>
