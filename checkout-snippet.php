@@ -1,4 +1,3 @@
-<?php
 // ========================================
 // CUSTOM CHECKOUT PAGE WITH 2-STEP PROCESS
 // ========================================
@@ -447,11 +446,11 @@ function render_custom_checkout() {
                         <!-- Contact Information -->
                         <div class="checkout-section" style="margin-top: 20px;">
                             <div class="section-title">👤 Contact information</div>
-                            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">We'll use this email to send you details and updates about your order.</p>
+                            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">We will use this email to send you details and updates about your order.</p>
                             
                             <div class="form-group">
                                 <label>Email address <span class="required">*</span></label>
-                                <input type="email" name="email" id="email" required placeholder="your@email.com">
+                                <input type="email" name="email" id="email" required placeholder="your@email.com" value="<?php echo is_user_logged_in() ? esc_attr(wp_get_current_user()->user_email) : ''; ?>">
                             </div>
                         </div>
 
@@ -463,23 +462,23 @@ function render_custom_checkout() {
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="form-group">
                                     <label>First name <span class="required">*</span></label>
-                                    <input type="text" name="first_name" id="first_name" required>
+                                    <input type="text" name="first_name" id="first_name" required value="<?php echo is_user_logged_in() ? esc_attr(wp_get_current_user()->first_name) : ''; ?>">
                                 </div>
                                 <div class="form-group">
                                     <label>Last name <span class="required">*</span></label>
-                                    <input type="text" name="last_name" id="last_name" required>
+                                    <input type="text" name="last_name" id="last_name" required value="<?php echo is_user_logged_in() ? esc_attr(wp_get_current_user()->last_name) : ''; ?>">
                                 </div>
                             </div>
 
                             <div class="form-group">
                                 <label>Phone <span class="required">*</span></label>
-                                <input type="tel" name="phone" id="phone" required>
+                                <input type="tel" name="phone" id="phone" required value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_phone', true)) : ''; ?>">
                             </div>
 
                             <!-- Address with Location Button -->
                             <div class="form-group">
                                 <label>Street address <span class="required">*</span></label>
-                                <input type="text" name="address" id="address-autocomplete" required placeholder="Start typing address...">
+                                <input type="text" name="address" id="address-autocomplete" required placeholder="Start typing address..." value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_address_1', true)) : ''; ?>">
                                 <input type="hidden" name="address_lat" id="address_lat">
                                 <input type="hidden" name="address_lng" id="address_lng">
                                 <button type="button" class="location-btn" id="get-location-btn">
@@ -494,30 +493,55 @@ function render_custom_checkout() {
                                 <div class="branch-list" id="branch-list"></div>
                             </div>
 
+                            <!-- Branch Selection -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="form-group">
+                                    <label>Choose branch <span class="required">*</span></label>
+                                    <select name="branch" id="branch-select" required>
+                                        <option value="">-- Select Branch --</option>
+                                        <?php foreach ($branches as $branch): ?>
+                                            <option value="<?php echo $branch['id']; ?>" 
+                                                    data-lat="<?php echo $branch['lat']; ?>" 
+                                                    data-lng="<?php echo $branch['lng']; ?>"
+                                                    data-address="<?php echo esc_attr($branch['address']); ?>">
+                                                <?php echo esc_html($branch['name']); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Distance Info -->
+                            <div class="delivery-info-box hidden" id="distance-info-box">
+                                <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
+                                <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">₱0</span></p>
+                            </div>
+
                             <div class="form-group">
                                 <label>Apartment, suite, unit, etc. (optional)</label>
-                                <input type="text" name="apartment" id="apartment">
+                                <input type="text" name="apartment" id="apartment" value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_address_2', true)) : ''; ?>">
                             </div>
 
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="form-group">
                                     <label>Town / City <span class="required">*</span></label>
                                     <select name="city" id="city" required>
+                                        <?php $user_city = is_user_logged_in() ? get_user_meta(get_current_user_id(), 'billing_city', true) : ''; ?>
                                         <option value="">-- Select City --</option>
-                                        <option value="PASAY">PASAY</option>
-                                        <option value="PARANAQUE">PARANAQUE</option>
-                                        <option value="MAKATI">MAKATI</option>
-                                        <option value="MANILA">MANILA</option>
-                                        <option value="MANDALUYONG">MANDALUYONG</option>
-                                        <option value="TAGUIG">TAGUIG</option>
-                                        <option value="PASIG">PASIG</option>
-                                        <option value="SAN JUAN">SAN JUAN</option>
-                                        <option value="MALABON">MALABON</option>
-                                        <option value="MARIKINA">MARIKINA</option>
-                                        <option value="QUEZON CITY">QUEZON CITY</option>
-                                        <option value="LAS PIÑAS">LAS PIÑAS</option>
-                                        <option value="VALENZUELA">VALENZUELA</option>
-                                        <option value="CALOOCAN">CALOOCAN</option>
+                                        <option value="PASAY" <?php echo ($user_city === 'PASAY') ? 'selected' : ''; ?>>PASAY</option>
+                                        <option value="PARANAQUE" <?php echo ($user_city === 'PARANAQUE') ? 'selected' : ''; ?>>PARANAQUE</option>
+                                        <option value="MAKATI" <?php echo ($user_city === 'MAKATI') ? 'selected' : ''; ?>>MAKATI</option>
+                                        <option value="MANILA" <?php echo ($user_city === 'MANILA') ? 'selected' : ''; ?>>MANILA</option>
+                                        <option value="MANDALUYONG" <?php echo ($user_city === 'MANDALUYONG') ? 'selected' : ''; ?>>MANDALUYONG</option>
+                                        <option value="TAGUIG" <?php echo ($user_city === 'TAGUIG') ? 'selected' : ''; ?>>TAGUIG</option>
+                                        <option value="PASIG" <?php echo ($user_city === 'PASIG') ? 'selected' : ''; ?>>PASIG</option>
+                                        <option value="SAN JUAN" <?php echo ($user_city === 'SAN JUAN') ? 'selected' : ''; ?>>SAN JUAN</option>
+                                        <option value="MALABON" <?php echo ($user_city === 'MALABON') ? 'selected' : ''; ?>>MALABON</option>
+                                        <option value="MARIKINA" <?php echo ($user_city === 'MARIKINA') ? 'selected' : ''; ?>>MARIKINA</option>
+                                        <option value="QUEZON CITY" <?php echo ($user_city === 'QUEZON CITY') ? 'selected' : ''; ?>>QUEZON CITY</option>
+                                        <option value="LAS PIÑAS" <?php echo ($user_city === 'LAS PIÑAS') ? 'selected' : ''; ?>>LAS PIÑAS</option>
+                                        <option value="VALENZUELA" <?php echo ($user_city === 'VALENZUELA') ? 'selected' : ''; ?>>VALENZUELA</option>
+                                        <option value="CALOOCAN" <?php echo ($user_city === 'CALOOCAN') ? 'selected' : ''; ?>>CALOOCAN</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -530,7 +554,7 @@ function render_custom_checkout() {
 
                             <div class="form-group">
                                 <label>Postcode / ZIP <span class="required">*</span></label>
-                                <input type="text" name="postcode" id="postcode" required>
+                                <input type="text" name="postcode" id="postcode" required value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_postcode', true)) : ''; ?>">
                             </div>
 
                             <!-- Delivery Address Fields (Hidden by default for pickup) -->
@@ -541,12 +565,6 @@ function render_custom_checkout() {
                                         <option value="Philippines" selected>Philippines</option>
                                     </select>
                                 </div>
-                            </div>
-
-                            <!-- Distance Info -->
-                            <div class="delivery-info-box hidden" id="distance-info-box">
-                                <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
-                                <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">₱0</span></p>
                             </div>
 
                             <div class="form-group">
@@ -572,25 +590,6 @@ function render_custom_checkout() {
                                     <label>Tax Code <span class="required">*</span></label>
                                     <input type="text" name="tax_code" id="tax_code" class="vat-required" placeholder="e.g., 0123456789">
                                 </div>
-                            </div>
-                        </div>
-
-                        <!-- Branch Selection -->
-                        <div class="checkout-section" id="branch-section" style="margin-top: 20px;">
-                            <div class="section-title">🏢 Select Branch</div>
-                            <div class="form-group">
-                                <label>Choose branch <span class="required">*</span></label>
-                                <select name="branch" id="branch-select" required>
-                                    <option value="">-- Select Branch --</option>
-                                    <?php foreach ($branches as $branch): ?>
-                                        <option value="<?php echo $branch['id']; ?>" 
-                                                data-lat="<?php echo $branch['lat']; ?>" 
-                                                data-lng="<?php echo $branch['lng']; ?>"
-                                                data-address="<?php echo esc_attr($branch['address']); ?>">
-                                            <?php echo esc_html($branch['name']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
                             </div>
                         </div>
 
@@ -1264,13 +1263,19 @@ function process_complete_checkout() {
         $order->calculate_totals();
         $order->save();
         
-        // Create customer account
+        // Create customer account or associate with existing user
         $email = sanitize_email($_POST['email']);
         $phone = sanitize_text_field($_POST['phone']);
         $first_name = sanitize_text_field($_POST['first_name']);
         $last_name = sanitize_text_field($_POST['last_name']);
         
-        if (!email_exists($email) && !username_exists($email)) {
+        if (is_user_logged_in()) {
+            // User is already logged in, associate order with current user
+            $user_id = get_current_user_id();
+            $order->set_customer_id($user_id);
+            $order->save();
+        } elseif (!email_exists($email) && !username_exists($email)) {
+            // Create new account for guest user
             $random_password = wp_generate_password(12, false);
             
             $user_id = wp_create_user($email, $random_password, $email);
@@ -1285,6 +1290,12 @@ function process_complete_checkout() {
                 ));
                 
                 update_user_meta($user_id, 'billing_phone', $phone);
+                update_user_meta($user_id, 'billing_address_1', sanitize_text_field($_POST['address']));
+                update_user_meta($user_id, 'billing_address_2', sanitize_text_field($_POST['apartment']));
+                update_user_meta($user_id, 'billing_city', sanitize_text_field($_POST['city']));
+                update_user_meta($user_id, 'billing_state', sanitize_text_field($_POST['state']));
+                update_user_meta($user_id, 'billing_postcode', sanitize_text_field($_POST['postcode']));
+                update_user_meta($user_id, 'billing_country', sanitize_text_field($_POST['country']));
                 
                 // Send password email
                 wp_mail(
@@ -1296,6 +1307,13 @@ function process_complete_checkout() {
                 
                 // Associate order with customer
                 $order->set_customer_id($user_id);
+                $order->save();
+            }
+        } else {
+            // Email already exists, associate order with existing user
+            $existing_user = get_user_by('email', $email);
+            if ($existing_user) {
+                $order->set_customer_id($existing_user->ID);
                 $order->save();
             }
         }
