@@ -1,4 +1,3 @@
-<?php
 // ========================================
 // CUSTOM THANK YOU PAGE
 // ========================================
@@ -46,7 +45,9 @@ function hide_default_woocommerce_thankyou_sections() {
         ul.order_details,
         .woocommerce-table,
         .woocommerce-column,
-        .woocommerce-columns {
+        .woocommerce-columns, 
+        .woocommerce-bacs-bank-details,
+        .woocommerce-thankyou-order-details {
             display: none !important;
         }
     </style>
@@ -369,14 +370,14 @@ function render_custom_thank_you_page($order) {
         <div class="alert-info">
             <strong>📧 Account Created!</strong>
             <p style="margin: 10px 0 0 0;">
-                We've created an account for you using your email address. Check your inbox for your login credentials. 
+                We have created an account for you using your email address. Check your inbox for your login credentials. 
                 You can use this account to track your orders and manage your profile.
             </p>
         </div>
 
         <!-- Action Buttons -->
         <div class="action-buttons">
-            <a href="<?php echo wc_get_account_endpoint_url('orders'); ?>" class="btn btn-primary">
+            <a href="https://goodriver.online/guest/share/order/woocommerce/<?php echo $order_id; ?>" class="btn btn-primary">
                 🔍 Track My Order
             </a>
             <a href="<?php echo wc_get_page_permalink('shop'); ?>" class="btn btn-secondary">

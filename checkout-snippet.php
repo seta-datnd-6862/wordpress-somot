@@ -679,27 +679,23 @@ function render_custom_checkout() {
                         <h3 style="margin: 20px 0 15px 0; color: #2d3748;">Choose Your Payment Method:</h3>
                         
                         <div class="bank-accounts">
-                            <!-- BDO Account -->
-                            <div class="bank-card">
-                                <h4>🏦 BDO Bank</h4>
-                                <p style="margin: 5px 0; color: #666;">Account Name: <strong>Kha V Ngo</strong></p>
-                                <div class="account-number">007540182560</div>
-                                <div class="qr-code" style="text-align: center;">
-                                    <p style="font-size: 12px; margin: 10px 0 5px 0;">Scan QR Code:</p>
-                                    <img src="https://so-mot.com/wp-content/uploads/2025/10/BDO-007540182560-Kha-V-Ngo.jpg" alt="BDO QR Code">
-                                </div>
-                            </div>
-                            
                             <!-- GCash Account -->
                             <div class="bank-card">
-                                <h4>📱 GCash</h4>
-                                <p style="margin: 5px 0; color: #666;">Account Name: <strong>V**BI*H N</strong></p>
-                                <div class="account-number">09950979419</div>
+                                <h4>📱 G-Cash</h4>
+                                <p style="margin: 5px 0; color: #666;">Account Name: <strong>ANATALIO JR FRANCISCO</strong></p>
+                                <div class="account-number">09277224868</div>
                                 <div class="qr-code" style="text-align: center;">
                                     <p style="font-size: 12px; margin: 10px 0 5px 0;">Scan QR Code:</p>
-                                    <img src="https://so-mot.com/wp-content/uploads/2025/10/Gcash-09950979419-V-BI-H-N.jpg" alt="GCash QR Code">
+                                    <img src="https://so-mot.com/wp-content/uploads/2025/12/z7330745065666_747ea90e7659f5a825197205af4829e7.jpg" alt="GCash QR Code">
                                 </div>
                             </div>
+                            <!-- BDO Account -->
+                            <div class="bank-card">
+                                <h4>🏦 BPI</h4>
+                                <p style="margin: 5px 0; color: #666;">Account Name: <strong>KEYSTONE VENTURE NETWORK CORPORATION</strong></p>
+                                <div class="account-number">0251000611</div>
+                            </div>
+                            
                         </div>
 
                         <div style="margin-top: 30px;">
