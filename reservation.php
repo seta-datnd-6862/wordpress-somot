@@ -155,71 +155,88 @@ function somot_reservation_form_shortcode($atts) {
     <div class="somot-reservation-wrapper">
         <div id="reservation-messages"></div>
         
-        <form id="somot-reservation-form" class="somot-reservation-form">
-            <div class="form-section">
-                <h3>Booking A Table Online Is Easy</h3>
-                
-                <div class="form-group">
-                    <label for="customer_name">Your Name <span class="required">*</span></label>
-                    <input type="text" id="customer_name" name="customer_name" required placeholder="Enter your name">
+        <div class="somot-reservation-card">
+            <h3 class="reservation-title">Booking A Table Online Is Easy</h3>
+            
+            <form id="somot-reservation-form" class="somot-reservation-form">
+                <div class="form-grid">
+                    <!-- Left Column -->
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label for="reservation_date">Date <span class="required">*</span></label>
+                            <input type="text" id="reservation_date" name="reservation_date" required placeholder="2025-12-18" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="reservation_time">From when? <span class="required">*</span></label>
+                            <select id="reservation_time" name="reservation_time" required>
+                                <option value="">Start time here</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer_name">Your Name <span class="required">*</span></label>
+                            <input type="text" id="customer_name" name="customer_name" required placeholder="Name here">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer_email">Your Email <span class="required">*</span></label>
+                            <input type="email" id="customer_email" name="customer_email" required placeholder="Email here">
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label for="branch_id">Select Branch <span class="required">*</span></label>
+                            <select id="branch_id" name="branch_id" required>
+                                <option value="">Choose a branch</option>
+                                <?php foreach (somot_get_branches() as $branch): ?>
+                                    <option value="<?php echo esc_attr($branch['id']); ?>">
+                                        <?php echo esc_html($branch['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group form-group-hidden">
+                            <label>Until? <span class="required">*</span></label>
+                            <select disabled>
+                                <option>End time here</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="customer_phone">How can we contact you? <span class="required">*</span></label>
+                            <input type="tel" id="customer_phone" name="customer_phone" required placeholder="Phone Number here">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="number_of_guests">Total Guests <span class="required">*</span></label>
+                            <select id="number_of_guests" name="number_of_guests" required>
+                                <option value="">Number of Guests</option>
+                                <?php for ($i = 1; $i <= 20; $i++): ?>
+                                    <option value="<?php echo $i; ?>"><?php echo $i; ?> <?php echo $i == 1 ? 'Guest' : 'Guests'; ?></option>
+                                <?php endfor; ?>
+                                <option value="21">More than 20 guests</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="customer_email">Your Email <span class="required">*</span></label>
-                    <input type="email" id="customer_email" name="customer_email" required placeholder="Enter your email">
-                </div>
-
-                <div class="form-group">
-                    <label for="customer_phone">Phone Number <span class="required">*</span></label>
-                    <input type="tel" id="customer_phone" name="customer_phone" required placeholder="Enter your phone number">
-                </div>
-
-                <div class="form-group">
-                    <label for="number_of_guests">Total Guests <span class="required">*</span></label>
-                    <select id="number_of_guests" name="number_of_guests" required>
-                        <option value="">Number of Guests</option>
-                        <?php for ($i = 1; $i <= 20; $i++): ?>
-                            <option value="<?php echo $i; ?>"><?php echo $i; ?> <?php echo $i == 1 ? 'Guest' : 'Guests'; ?></option>
-                        <?php endfor; ?>
-                        <option value="21">More than 20 guests</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="branch_id">Select Branch <span class="required">*</span></label>
-                    <select id="branch_id" name="branch_id" required>
-                        <option value="">Choose a branch</option>
-                        <?php foreach (somot_get_branches() as $branch): ?>
-                            <option value="<?php echo esc_attr($branch['id']); ?>">
-                                <?php echo esc_html($branch['name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="reservation_date">Date <span class="required">*</span></label>
-                    <input type="text" id="reservation_date" name="reservation_date" required placeholder="Select date" readonly>
-                </div>
-
-                <div class="form-group">
-                    <label for="reservation_time">Time <span class="required">*</span></label>
-                    <select id="reservation_time" name="reservation_time" required>
-                        <option value="">Select time</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
+                <!-- Full Width Field -->
+                <div class="form-group form-group-full">
                     <label for="additional_notes">Additional Information</label>
-                    <textarea id="additional_notes" name="additional_notes" rows="4" placeholder="Enter your message here"></textarea>
+                    <textarea id="additional_notes" name="additional_notes" rows="4" placeholder="Enter Your Message here"></textarea>
                 </div>
 
+                <!-- Action Buttons -->
                 <div class="form-actions">
                     <button type="button" id="request-cancellation" class="btn btn-secondary">Request Cancellation</button>
                     <button type="submit" id="submit-reservation" class="btn btn-primary">Book a table</button>
                 </div>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
     <?php
     return ob_get_clean();
@@ -227,11 +244,69 @@ function somot_reservation_form_shortcode($atts) {
 add_shortcode('somot_reservation_form', 'somot_reservation_form_shortcode');
 
 // ============================================================================
+// FULL PAGE SHORTCODE (with Hero + Form + Video)
+// ============================================================================
+
+function somot_reservation_full_page_shortcode($atts) {
+    ob_start();
+    ?>
+    <!-- Hero Section -->
+    <div class="somot-hero-section">
+        <div class="somot-hero-overlay">
+            <h1 class="somot-hero-title">Reservation</h1>
+            <nav class="somot-breadcrumb">
+                <a href="<?php echo home_url(); ?>">Home</a>
+                <span class="separator">&nbsp;/&nbsp;</span>
+                <span>Reservation</span>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Form Section -->
+    <div class="somot-form-section">
+        <div class="somot-container">
+            <div class="somot-form-grid">
+                <!-- Left Column: Form -->
+                <div class="somot-form-wrapper">
+                    <?php echo somot_reservation_form_shortcode(array()); ?>
+                </div>
+
+                <!-- Right Column: Image -->
+                <div class="somot-image-wrapper">
+                    <img src="https://so-mot.com/wp-content/uploads/2025/10/fresh-spring-rolls-family-sharing-805x1024.jpg.webp" 
+                         alt="Fresh Spring Rolls Family Sharing"
+                         class="somot-side-image">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Section -->
+    <div class="somot-video-section">
+        <div class="somot-video-overlay">
+            <a href="https://www.youtube.com/watch?v=cqIjDg7kuwo" class="somot-play-button" target="_blank" rel="noopener">
+                <svg aria-hidden="true" class="somot-play-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M371.7 238l-176-107c-15.8-8.8-35.7 2.5-35.7 21v208c0 18.4 19.8 29.8 35.7 21l176-101c16.4-9.1 16.4-32.8 0-42zM504 256C504 119 393 8 256 8S8 119 8 256s111 248 248 248 248-111 248-248zm-448 0c0-110.5 89.5-200 200-200s200 89.5 200 200-89.5 200-200 200S56 366.5 56 256z"></path>
+                </svg>
+            </a>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+add_shortcode('somot_reservation_full_page', 'somot_reservation_full_page_shortcode');
+
+// ============================================================================
 // ENQUEUE SCRIPTS (INLINE)
 // ============================================================================
 
 function somot_reservation_enqueue_scripts() {
-    if (is_page() && has_shortcode(get_post()->post_content, 'somot_reservation_form')) {
+    $post_content = '';
+    if (is_page() && get_post()) {
+        $post_content = get_post()->post_content;
+    }
+    
+    if (has_shortcode($post_content, 'somot_reservation_form') || has_shortcode($post_content, 'somot_reservation_full_page')) {
         // jQuery UI Datepicker
         wp_enqueue_script('jquery-ui-datepicker');
         wp_enqueue_style('jquery-ui-css', 'https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css');
@@ -259,184 +334,414 @@ add_action('wp_enqueue_scripts', 'somot_reservation_enqueue_scripts');
 function somot_reservation_inline_css() {
     ?>
     <style type="text/css">
-        /* Somot Reservation Form Styles */
-        .somot-reservation-wrapper {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
+        /* ============================================ */
+        /* HERO SECTION */
+        /* ============================================ */
+        .somot-hero-section {
+            min-height: 450px;
+            background-image: url('https://so-mot.com/wp-content/uploads/2025/10/so-mot-restaurant-web.jpg.webp');
+            background-position: center center;
+            background-size: 93% auto;
+            background-repeat: no-repeat;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 60px;
         }
 
-        .somot-reservation-form {
-            background: #f9f9f9;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .form-section h3 {
-            color: #2d5016;
-            margin-bottom: 30px;
+        .somot-hero-overlay {
+            position: relative;
+            z-index: 2;
             text-align: center;
-            font-size: 24px;
-            font-weight: 600;
+            color: #FFFDF1;
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        .somot-hero-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #2d5016;
+            opacity: 0.7;
+            z-index: 1;
         }
 
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
+        .somot-hero-title {
+            font-family: "Prata", Sans-serif;
+            font-size: 55px;
+            font-weight: 400;
+            text-transform: capitalize;
+            line-height: 1.2em;
+            letter-spacing: 2px;
+            margin: 0 0 15px 0;
+            color: #FFFDF1;
+        }
+
+        .somot-breadcrumb {
+            font-family: "Quicksand", Sans-serif;
+            color: #FFFDF1;
             font-size: 14px;
         }
 
-        .form-group .required {
-            color: #dc3545;
+        .somot-breadcrumb a {
+            color: #FFFDF1;
+            text-decoration: none;
         }
 
+        .somot-breadcrumb a:hover {
+            text-decoration: underline;
+        }
+
+        .somot-breadcrumb .separator {
+            color: #FFFDF1;
+        }
+
+        /* ============================================ */
+        /* FORM SECTION CONTAINER */
+        /* ============================================ */
+        .somot-form-section {
+            margin: 60px 0;
+            background-color: #FFFDF1;
+        }
+
+        .somot-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .somot-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 0.7fr;
+            gap: 40px;
+            align-items: start;
+        }
+
+        .somot-form-wrapper {
+            width: 100%;
+        }
+
+        .somot-image-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .somot-side-image {
+            width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        /* ============================================ */
+        /* VIDEO SECTION */
+        /* ============================================ */
+        .somot-video-section {
+            min-height: 350px;
+            background-image: url('https://so-mot.com/wp-content/uploads/2025/11/customer-so-mot.jpg.webp');
+            background-position: center center;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 60px;
+        }
+
+        .somot-video-overlay {
+            position: relative;
+            z-index: 2;
+        }
+
+        .somot-video-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #2d5016;
+            opacity: 0.3;
+            z-index: 1;
+        }
+
+        .somot-play-button {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 96px;
+            height: 96px;
+            background-color: #FFFDF1;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .somot-play-button:hover {
+            background-color: #2d5016;
+            transform: scale(1.1);
+        }
+
+        .somot-play-icon {
+            width: 48px;
+            height: 48px;
+            fill: #2d5016;
+            transition: fill 0.3s ease;
+        }
+
+        .somot-play-button:hover .somot-play-icon {
+            fill: #FFFDF1;
+        }
+
+        /* ============================================ */
+        /* FORM STYLES (Original) */
+        /* ============================================ */
+        .somot-reservation-wrapper {
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .somot-reservation-card {
+            background: #ffffff;
+            padding: 48px;
+            border-radius: 12px;
+            border: 1px solid #2d5016;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+
+        .reservation-title {
+            color: #111827;
+            margin: 15px 0 32px 0;
+            text-align: center;
+            font-size: 33px;
+            font-weight: 800;
+            line-height: 1.2em;
+            letter-spacing: 2px;
+            text-transform: capitalize;
+            font-family: "Quicksand", Sans-serif;
+        }
+
+        .somot-reservation-form {
+            width: 100%;
+        }
+
+        /* Two Column Grid */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .form-column {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Form Groups */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .form-group-full {
+            grid-column: 1 / -1;
+            margin-top: 0;
+        }
+
+        .form-group-hidden {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .form-group label {
+            display: flex;
+            align-items: center;
+            color: #6b7280;
+            font-weight: 600;
+            font-size: 14px;
+            line-height: 1.25rem;
+            margin: 0;
+            font-family: "Quicksand", Sans-serif;
+        }
+
+        .form-group .required {
+            color: #dc2626;
+            margin-left: 4px;
+        }
+
+        /* Form Controls */
         .form-group input[type="text"],
         .form-group input[type="email"],
         .form-group input[type="tel"],
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 14px;
-            transition: border-color 0.3s ease;
-            background-color: #fff;
+            height: 44px;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #2d5016;
+            background-color: #FFFDF1;
+            transition: all 0.15s ease;
             box-sizing: border-box;
+            outline: none;
+            font-family: "Quicksand", Sans-serif;
+            font-weight: 600;
+        }
+
+        .form-group textarea {
+            min-height: 96px;
+            height: auto;
+            resize: vertical;
+            padding: 12px;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #9ca3af;
         }
 
         .form-group input:focus,
         .form-group select:focus,
         .form-group textarea:focus {
-            outline: none;
             border-color: #2d5016;
             box-shadow: 0 0 0 3px rgba(45, 80, 22, 0.1);
-        }
-
-        .form-group input.error {
-            border-color: #dc3545;
-        }
-
-        .form-group textarea {
-            resize: vertical;
-            min-height: 100px;
         }
 
         .form-group select {
             cursor: pointer;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
-            background-position: right 15px center;
+            background-position: right 12px center;
             background-size: 12px;
             padding-right: 40px;
         }
 
         .form-group select:disabled {
-            background-color: #f5f5f5;
+            background-color: #f9fafb;
             cursor: not-allowed;
-            opacity: 0.6;
+            color: #9ca3af;
         }
 
+        /* Action Buttons */
         .form-actions {
             display: flex;
-            gap: 15px;
-            margin-top: 30px;
+            gap: 16px;
+            margin-top: 32px;
             justify-content: space-between;
+            flex-wrap: wrap;
         }
 
         .btn {
-            padding: 12px 30px;
+            height: 44px;
+            padding: 0 24px;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             text-decoration: none;
-            display: inline-block;
-            text-align: center;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            white-space: nowrap;
+            outline: none;
         }
 
         .btn-primary {
             background-color: #2d5016;
-            color: #fff;
+            color: #FFFDF1;
             flex: 1;
+            min-width: 200px;
         }
 
         .btn-primary:hover {
-            background-color: #1f3710;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(45, 80, 22, 0.3);
+            background-color: #2d5016;
+            opacity: 0.9;
+        }
+
+        .btn-primary:active {
+            background-color: #1a3009;
         }
 
         .btn-primary:disabled {
-            background-color: #6c757d;
+            background-color: #9ca3af;
             cursor: not-allowed;
-            transform: none;
         }
 
         .btn-secondary {
-            background-color: #6c757d;
-            color: #fff;
+            background-color: #e5e7eb;
+            color: #2d5016;
+            padding: 0 24px;
         }
 
         .btn-secondary:hover {
-            background-color: #5a6268;
+            background-color: #d1d5db;
         }
 
         /* Alert Messages */
         #reservation-messages {
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
 
         .alert {
-            padding: 15px 20px;
-            border-radius: 5px;
-            margin-bottom: 15px;
+            padding: 16px 20px;
+            border-radius: 8px;
+            margin-bottom: 16px;
             position: relative;
             display: flex;
-            align-items: center;
-            gap: 10px;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 14px;
+            line-height: 1.5;
         }
 
-        .alert i {
-            font-size: 20px;
+        .alert strong {
+            font-weight: 500;
         }
 
         .alert-success {
-            background-color: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
+            background-color: #dcfce7;
+            border: 1px solid #bbf7d0;
+            color: #166534;
         }
 
         .alert-danger {
-            background-color: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
+            background-color: #fee2e2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
         }
 
         .alert-info {
-            background-color: #d1ecf1;
-            border: 1px solid #bee5eb;
-            color: #0c5460;
+            background-color: #dbeafe;
+            border: 1px solid #bfdbfe;
+            color: #1e40af;
         }
 
         .alert .close {
             position: absolute;
-            right: 15px;
+            right: 12px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
-            font-size: 24px;
+            font-size: 20px;
             cursor: pointer;
             color: inherit;
             opacity: 0.5;
@@ -444,6 +749,9 @@ function somot_reservation_inline_css() {
             width: 24px;
             height: 24px;
             line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .alert .close:hover {
@@ -453,79 +761,177 @@ function somot_reservation_inline_css() {
         /* jQuery UI Datepicker Customization */
         .ui-datepicker {
             font-family: inherit !important;
-            border: 1px solid #ddd !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            border: 1px solid #d1d5db !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+            padding: 8px !important;
         }
 
         .ui-datepicker-header {
             background: #2d5016 !important;
-            color: #fff !important;
+            color: #ffffff !important;
             border: none !important;
+            border-radius: 6px !important;
+            padding: 8px !important;
+        }
+
+        .ui-datepicker-title {
+            color: #ffffff !important;
+        }
+
+        .ui-datepicker-prev,
+        .ui-datepicker-next {
+            color: #ffffff !important;
         }
 
         .ui-state-default {
             text-align: center !important;
             border: 1px solid transparent !important;
+            background: transparent !important;
+        }
+
+        .ui-state-default:hover {
+            background: #f3f4f6 !important;
+            border-color: #d1d5db !important;
         }
 
         .ui-state-highlight {
             background: #2d5016 !important;
-            color: #fff !important;
+            color: #ffffff !important;
+            border-color: #2d5016 !important;
         }
 
         .ui-state-active {
-            background: #1f3710 !important;
-            color: #fff !important;
+            background: #1a3009 !important;
+            color: #ffffff !important;
+            border-color: #1a3009 !important;
         }
 
-        /* Responsive Design */
+        /* ============================================ */
+        /* RESPONSIVE DESIGN */
+        /* ============================================ */
+        @media (max-width: 1024px) {
+            .somot-hero-title {
+                font-size: 42px;
+            }
+
+            .somot-form-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .somot-video-section {
+                background-attachment: scroll;
+            }
+
+            .reservation-title {
+                font-size: 26px;
+                letter-spacing: 0.5px;
+            }
+        }
+
         @media (max-width: 768px) {
-            .somot-reservation-wrapper {
-                padding: 10px;
+            .somot-hero-section {
+                min-height: 300px;
+                margin-bottom: 40px;
             }
 
-            .somot-reservation-form {
-                padding: 20px;
+            .somot-hero-title {
+                font-size: 28px;
             }
 
-            .form-section h3 {
-                font-size: 20px;
+            .somot-breadcrumb {
+                font-size: 12px;
+            }
+
+            .somot-form-section {
+                margin: 40px 0;
+            }
+
+            .somot-container {
+                padding: 0 15px;
+            }
+
+            .somot-reservation-card {
+                padding: 24px;
+                border-radius: 8px;
+            }
+
+            .reservation-title {
+                font-size: 18px;
+                margin-bottom: 24px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .form-column {
+                gap: 20px;
+            }
+
+            .form-group label {
+                font-size: 15px;
+            }
+
+            .form-group input[type="text"],
+            .form-group input[type="email"],
+            .form-group input[type="tel"],
+            .form-group select,
+            .form-group textarea {
+                font-size: 13px;
             }
 
             .form-actions {
                 flex-direction: column;
+                gap: 12px;
             }
 
             .btn {
                 width: 100%;
+                min-width: 0;
+            }
+
+            .somot-image-wrapper {
+                display: none;
+            }
+
+            .somot-video-section {
+                min-height: 250px;
+                margin-bottom: 40px;
+            }
+
+            .somot-play-button {
+                width: 72px;
+                height: 72px;
+            }
+
+            .somot-play-icon {
+                width: 36px;
+                height: 36px;
             }
         }
 
         /* Loading State */
         .form-group input:disabled,
-        .form-group select:disabled {
-            background-color: #f5f5f5;
+        .form-group select:disabled,
+        .form-group textarea:disabled {
+            background-color: #f9fafb;
             cursor: not-allowed;
-        }
-
-        /* Placeholder Styles */
-        ::placeholder {
-            color: #999;
-            opacity: 1;
-        }
-
-        :-ms-input-placeholder {
-            color: #999;
-        }
-
-        ::-ms-input-placeholder {
-            color: #999;
+            opacity: 0.6;
         }
 
         /* Focus visible for accessibility */
         *:focus-visible {
             outline: 2px solid #2d5016;
             outline-offset: 2px;
+        }
+
+        /* Error state */
+        .form-group input.error,
+        .form-group select.error {
+            border-color: #dc2626;
         }
     </style>
     <?php
