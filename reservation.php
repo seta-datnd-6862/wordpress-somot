@@ -17,7 +17,7 @@
 // CONFIGURATION - UPDATE THESE VALUES
 // ============================================================================
 
-define('GOODRIVER_API_URL', 'https://your-goodriver-domain.com/api');
+define('GOODRIVER_API_URL', 'https://goodriver.online/api');
 define('GOODRIVER_API_KEY', 'your-secure-api-key-here'); // From .env WORDPRESS_API_KEY
 
 // ============================================================================
@@ -26,9 +26,9 @@ define('GOODRIVER_API_KEY', 'your-secure-api-key-here'); // From .env WORDPRESS_
 
 function somot_get_branches() {
     return array(
-        array('id' => 1, 'name' => 'Tayuman Branch, Manila', 'lat' => 14.6175959, 'lng' => 120.9837713, 'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines'),
-        array('id' => 2, 'name' => 'Pioneer Branch, Pasig', 'lat' => 14.5731404, 'lng' => 121.0164509, 'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines'),
-        array('id' => 3, 'name' => 'Unimart Branch, Capitol Commons, Pasig', 'lat' => 14.574848, 'lng' => 121.0618259, 'address' => 'Ground Floor, Unimart at Capitol Commons, Shaw Blvd, Pasig, Metro Manila, Philippines'),
+        array('id' => 2, 'name' => 'Tayuman Branch, Manila', 'lat' => 14.6175959, 'lng' => 120.9837713, 'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines'),
+        array('id' => 1, 'name' => 'Pioneer Branch, Pasig', 'lat' => 14.5731404, 'lng' => 121.0164509, 'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines'),
+        array('id' => 4, 'name' => 'Unimart Branch, Capitol Commons, Pasig', 'lat' => 14.574848, 'lng' => 121.0618259, 'address' => 'Ground Floor, Unimart at Capitol Commons, Shaw Blvd, Pasig, Metro Manila, Philippines'),
     );
 }
 
@@ -171,6 +171,31 @@ function somot_reservation_form_shortcode($atts) {
                             <label for="reservation_time">From when? <span class="required">*</span></label>
                             <select id="reservation_time" name="reservation_time" required>
                                 <option value="">Start time here</option>
+                                <option value="10:00">10:00 AM</option>
+                                <option value="10:30">10:30 AM</option>
+                                <option value="11:00">11:00 AM</option>
+                                <option value="11:30">11:30 AM</option>
+                                <option value="12:00">12:00 PM</option>
+                                <option value="12:30">12:30 PM</option>
+                                <option value="13:00">1:00 PM</option>
+                                <option value="13:30">1:30 PM</option>
+                                <option value="14:00">2:00 PM</option>
+                                <option value="14:30">2:30 PM</option>
+                                <option value="15:00">3:00 PM</option>
+                                <option value="15:30">3:30 PM</option>
+                                <option value="16:00">4:00 PM</option>
+                                <option value="16:30">4:30 PM</option>
+                                <option value="17:00">5:00 PM</option>
+                                <option value="17:30">5:30 PM</option>
+                                <option value="18:00">6:00 PM</option>
+                                <option value="18:30">6:30 PM</option>
+                                <option value="19:00">7:00 PM</option>
+                                <option value="19:30">7:30 PM</option>
+                                <option value="20:00">8:00 PM</option>
+                                <option value="20:30">8:30 PM</option>
+                                <option value="21:00">9:00 PM</option>
+                                <option value="21:30">9:30 PM</option>
+                                <option value="22:00">10:00 PM</option>
                             </select>
                         </div>
 
@@ -213,13 +238,7 @@ function somot_reservation_form_shortcode($atts) {
 
                         <div class="form-group">
                             <label for="number_of_guests">Total Guests <span class="required">*</span></label>
-                            <select id="number_of_guests" name="number_of_guests" required>
-                                <option value="">Number of Guests</option>
-                                <?php for ($i = 1; $i <= 20; $i++): ?>
-                                    <option value="<?php echo $i; ?>"><?php echo $i; ?> <?php echo $i == 1 ? 'Guest' : 'Guests'; ?></option>
-                                <?php endfor; ?>
-                                <option value="21">More than 20 guests</option>
-                            </select>
+                            <input type="number" id="number_of_guests" name="number_of_guests" required placeholder="Number of Guests" min="1" max="100">
                         </div>
                     </div>
                 </div>
@@ -250,45 +269,50 @@ add_shortcode('somot_reservation_form', 'somot_reservation_form_shortcode');
 function somot_reservation_full_page_shortcode($atts) {
     ob_start();
     ?>
-    <!-- Hero Section -->
-    <div class="somot-hero-section">
-        <div class="somot-hero-overlay">
-            <h1 class="somot-hero-title">Reservation</h1>
-            <nav class="somot-breadcrumb">
-                <a href="<?php echo home_url(); ?>">Home</a>
-                <span class="separator">&nbsp;/&nbsp;</span>
-                <span>Reservation</span>
-            </nav>
+    <div class="ast-container" style="
+    max-width: 1200px !important;
+    width: 100% !important;
+">
+        <!-- Hero Section -->
+        <div class="somot-hero-section">
+            <div class="somot-hero-overlay">
+                <h1 class="somot-hero-title" style="color: #FFFDF1;">Reservation</h1>
+                <nav class="somot-breadcrumb">
+                    <a href="<?php echo home_url(); ?>">Home</a>
+                    <span class="separator">&nbsp;/&nbsp;</span>
+                    <span>Reservation</span>
+                </nav>
+            </div>
         </div>
-    </div>
 
-    <!-- Form Section -->
-    <div class="somot-form-section">
-        <div class="somot-container">
-            <div class="somot-form-grid">
-                <!-- Left Column: Form -->
-                <div class="somot-form-wrapper">
-                    <?php echo somot_reservation_form_shortcode(array()); ?>
-                </div>
+        <!-- Form Section -->
+        <div class="somot-form-section">
+            <div class="somot-container">
+                <div class="somot-form-grid">
+                    <!-- Left Column: Form -->
+                    <div class="somot-form-wrapper">
+                        <?php echo somot_reservation_form_shortcode(array()); ?>
+                    </div>
 
-                <!-- Right Column: Image -->
-                <div class="somot-image-wrapper">
-                    <img src="https://so-mot.com/wp-content/uploads/2025/10/fresh-spring-rolls-family-sharing-805x1024.jpg.webp" 
-                         alt="Fresh Spring Rolls Family Sharing"
-                         class="somot-side-image">
+                    <!-- Right Column: Image -->
+                    <div class="somot-image-wrapper">
+                        <img src="https://so-mot.com/wp-content/uploads/2025/10/fresh-spring-rolls-family-sharing-805x1024.jpg.webp" 
+                             alt="Fresh Spring Rolls Family Sharing"
+                             class="somot-side-image">
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Video Section -->
-    <div class="somot-video-section">
-        <div class="somot-video-overlay">
-            <a href="https://www.youtube.com/watch?v=cqIjDg7kuwo" class="somot-play-button" target="_blank" rel="noopener">
-                <svg aria-hidden="true" class="somot-play-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M371.7 238l-176-107c-15.8-8.8-35.7 2.5-35.7 21v208c0 18.4 19.8 29.8 35.7 21l176-101c16.4-9.1 16.4-32.8 0-42zM504 256C504 119 393 8 256 8S8 119 8 256s111 248 248 248 248-111 248-248zm-448 0c0-110.5 89.5-200 200-200s200 89.5 200 200-89.5 200-200 200S56 366.5 56 256z"></path>
-                </svg>
-            </a>
+        <!-- Video Section -->
+        <div class="somot-video-section">
+            <div class="somot-video-overlay">
+                <a href="https://www.youtube.com/watch?v=cqIjDg7kuwo" class="somot-play-button" target="_blank" rel="noopener">
+                    <svg aria-hidden="true" class="somot-play-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M371.7 238l-176-107c-15.8-8.8-35.7 2.5-35.7 21v208c0 18.4 19.8 29.8 35.7 21l176-101c16.4-9.1 16.4-32.8 0-42zM504 256C504 119 393 8 256 8S8 119 8 256s111 248 248 248 248-111 248-248zm-448 0c0-110.5 89.5-200 200-200s200 89.5 200 200-89.5 200-200 200S56 366.5 56 256z"></path>
+                    </svg>
+                </a>
+            </div>
         </div>
     </div>
     <?php
@@ -378,7 +402,7 @@ function somot_reservation_inline_css() {
             line-height: 1.2em;
             letter-spacing: 2px;
             margin: 0 0 15px 0;
-            color: #FFFDF1;
+            color: #FFFDF1 !important;
         }
 
         .somot-breadcrumb {
@@ -585,6 +609,7 @@ function somot_reservation_inline_css() {
         .form-group input[type="text"],
         .form-group input[type="email"],
         .form-group input[type="tel"],
+        .form-group input[type="number"],
         .form-group select,
         .form-group textarea {
             width: 100%;
@@ -878,6 +903,7 @@ function somot_reservation_inline_css() {
             .form-group input[type="text"],
             .form-group input[type="email"],
             .form-group input[type="tel"],
+            .form-group input[type="number"],
             .form-group select,
             .form-group textarea {
                 font-size: 13px;
@@ -1113,11 +1139,19 @@ function somot_reservation_inline_js() {
             });
 
             // Number of guests validation
-            $('#number_of_guests').on('change', function() {
+            $('#number_of_guests').on('change input', function() {
                 var guests = parseInt($(this).val());
                 
                 if (guests > 20) {
                     showMessage('info', 'For parties larger than 20 guests, please contact us directly to arrange your reservation.');
+                }
+                
+                if (guests < 1) {
+                    $(this).val(1);
+                }
+                
+                if (guests > 100) {
+                    $(this).val(100);
                 }
             });
         });
