@@ -28,7 +28,6 @@ function somot_get_branches() {
     return array(
         array('id' => 2, 'name' => 'Tayuman Branch, Manila', 'lat' => 14.6175959, 'lng' => 120.9837713, 'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines'),
         array('id' => 1, 'name' => 'Pioneer Branch, Pasig', 'lat' => 14.5731404, 'lng' => 121.0164509, 'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines'),
-        array('id' => 4, 'name' => 'Unimart Branch, Capitol Commons, Pasig', 'lat' => 14.574848, 'lng' => 121.0618259, 'address' => 'Ground Floor, Unimart at Capitol Commons, Shaw Blvd, Pasig, Metro Manila, Philippines'),
     );
 }
 
@@ -226,8 +225,33 @@ function somot_reservation_form_shortcode($atts) {
 
                         <div class="form-group form-group-hidden">
                             <label>Until? <span class="required">*</span></label>
-                            <select disabled>
-                                <option>End time here</option>
+                            <select id="reservation_end_time" name="reservation_end_time" required>
+                                <option value="">Start time here</option>
+                                <option value="10:00">10:00 AM</option>
+                                <option value="10:30">10:30 AM</option>
+                                <option value="11:00">11:00 AM</option>
+                                <option value="11:30">11:30 AM</option>
+                                <option value="12:00">12:00 PM</option>
+                                <option value="12:30">12:30 PM</option>
+                                <option value="13:00">1:00 PM</option>
+                                <option value="13:30">1:30 PM</option>
+                                <option value="14:00">2:00 PM</option>
+                                <option value="14:30">2:30 PM</option>
+                                <option value="15:00">3:00 PM</option>
+                                <option value="15:30">3:30 PM</option>
+                                <option value="16:00">4:00 PM</option>
+                                <option value="16:30">4:30 PM</option>
+                                <option value="17:00">5:00 PM</option>
+                                <option value="17:30">5:30 PM</option>
+                                <option value="18:00">6:00 PM</option>
+                                <option value="18:30">6:30 PM</option>
+                                <option value="19:00">7:00 PM</option>
+                                <option value="19:30">7:30 PM</option>
+                                <option value="20:00">8:00 PM</option>
+                                <option value="20:30">8:30 PM</option>
+                                <option value="21:00">9:00 PM</option>
+                                <option value="21:30">9:30 PM</option>
+                                <option value="22:00">10:00 PM</option>
                             </select>
                         </div>
 
@@ -272,11 +296,13 @@ function somot_reservation_full_page_shortcode($atts) {
     <div class="ast-container" style="
     max-width: 1200px !important;
     width: 100% !important;
+    flex-direction: column !important;
 ">
         <!-- Hero Section -->
         <div class="somot-hero-section">
             <div class="somot-hero-overlay">
-                <h1 class="somot-hero-title" style="color: #FFFDF1;">Reservation</h1>
+                <h1 class="somot-hero-title" style="color: #FFFDF1; font-weight: bold;">Reserve Your Table - Savor Authentic Vietnam</h1>
+                <span class="somot-subtitle">For Every Taste, Every Moment</span>
                 <nav class="somot-breadcrumb">
                     <a href="<?php echo home_url(); ?>">Home</a>
                     <span class="separator">&nbsp;/&nbsp;</span>
@@ -285,33 +311,50 @@ function somot_reservation_full_page_shortcode($atts) {
             </div>
         </div>
 
-        <!-- Form Section -->
+        <!-- Form Section (Centered) -->
         <div class="somot-form-section">
             <div class="somot-container">
-                <div class="somot-form-grid">
-                    <!-- Left Column: Form -->
-                    <div class="somot-form-wrapper">
-                        <?php echo somot_reservation_form_shortcode(array()); ?>
-                    </div>
-
-                    <!-- Right Column: Image -->
-                    <div class="somot-image-wrapper">
-                        <img src="https://so-mot.com/wp-content/uploads/2025/10/fresh-spring-rolls-family-sharing-805x1024.jpg.webp" 
-                             alt="Fresh Spring Rolls Family Sharing"
-                             class="somot-side-image">
-                    </div>
+                <div class="somot-form-center">
+                    <?php echo somot_reservation_form_shortcode(array()); ?>
                 </div>
             </div>
         </div>
 
-        <!-- Video Section -->
+        <!-- Video Section (3 YouTube Videos) -->
         <div class="somot-video-section">
-            <div class="somot-video-overlay">
-                <a href="https://www.youtube.com/watch?v=cqIjDg7kuwo" class="somot-play-button" target="_blank" rel="noopener">
-                    <svg aria-hidden="true" class="somot-play-icon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M371.7 238l-176-107c-15.8-8.8-35.7 2.5-35.7 21v208c0 18.4 19.8 29.8 35.7 21l176-101c16.4-9.1 16.4-32.8 0-42zM504 256C504 119 393 8 256 8S8 119 8 256s111 248 248 248 248-111 248-248zm-448 0c0-110.5 89.5-200 200-200s200 89.5 200 200-89.5 200-200 200S56 366.5 56 256z"></path>
-                    </svg>
-                </a>
+            <div class="somot-container">
+                <div class="somot-video-grid">
+                    <div class="somot-video-item">
+                        <iframe 
+                            src="https://www.youtube.com/embed/WSwNxGUeaC8?si=JLuqTp2J7RFJRm4Z" 
+                            title="Số Một Video 1" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            referrerpolicy="strict-origin-when-cross-origin" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                    <div class="somot-video-item">
+                        <iframe 
+                            src="https://www.youtube.com/embed/Qfb5GDSkauw?si=ND7d0qXuSQzNxI4-" 
+                            title="Số Một Video 2" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            referrerpolicy="strict-origin-when-cross-origin" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                    <div class="somot-video-item">
+                        <iframe 
+                            src="https://www.youtube.com/embed/cqIjDg7kuwo?si=6XEqSMk7gGqBFTbo" 
+                            title="Số Một Video 3" 
+                            frameborder="0" 
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                            referrerpolicy="strict-origin-when-cross-origin" 
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -365,7 +408,7 @@ function somot_reservation_inline_css() {
             min-height: 450px;
             background-image: url('https://so-mot.com/wp-content/uploads/2025/10/so-mot-restaurant-web.jpg.webp');
             background-position: center center;
-            background-size: 93% auto;
+            background-size: 115% auto;
             background-repeat: no-repeat;
             position: relative;
             display: flex;
@@ -396,13 +439,21 @@ function somot_reservation_inline_css() {
 
         .somot-hero-title {
             font-family: "Prata", Sans-serif;
-            font-size: 55px;
+            font-size: 35px;
             font-weight: 400;
             text-transform: capitalize;
             line-height: 1.2em;
             letter-spacing: 2px;
             margin: 0 0 15px 0;
             color: #FFFDF1 !important;
+        }
+
+        .somot-subtitle {
+            font-family: "Quicksand", Sans-serif;
+            font-size: 25px;
+            font-weight: 500;
+            margin-bottom: 20px;
+            color: #FFFDF1;
         }
 
         .somot-breadcrumb {
@@ -428,7 +479,6 @@ function somot_reservation_inline_css() {
         /* FORM SECTION CONTAINER */
         /* ============================================ */
         .somot-form-section {
-            margin: 60px 0;
             background-color: #FFFDF1;
         }
 
@@ -438,91 +488,44 @@ function somot_reservation_inline_css() {
             padding: 0 20px;
         }
 
-        .somot-form-grid {
-            display: grid;
-            grid-template-columns: 1fr 0.7fr;
-            gap: 40px;
-            align-items: start;
-        }
-
-        .somot-form-wrapper {
-            width: 100%;
-        }
-
-        .somot-image-wrapper {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .somot-side-image {
-            width: 100%;
-            height: auto;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        .somot-form-center {
+            max-width: 800px;
+            margin: 0 auto;
         }
 
         /* ============================================ */
         /* VIDEO SECTION */
         /* ============================================ */
         .somot-video-section {
-            min-height: 350px;
-            background-image: url('https://so-mot.com/wp-content/uploads/2025/11/customer-so-mot.jpg.webp');
-            background-position: center center;
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 60px;
+            margin: 60px 0;
+            background-color: #FFFDF1;
+            padding: 40px 0;
         }
 
-        .somot-video-overlay {
-            position: relative;
-            z-index: 2;
+        .somot-video-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin: 0 auto;
         }
 
-        .somot-video-section::before {
-            content: '';
+        .somot-video-item {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+            height: 0;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .somot-video-item iframe {
             position: absolute;
             top: 0;
             left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #2d5016;
-            opacity: 0.3;
-            z-index: 1;
-        }
-
-        .somot-play-button {
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            width: 96px;
-            height: 96px;
-            background-color: #FFFDF1;
-            border-radius: 50%;
-            transition: all 0.3s ease;
-            text-decoration: none;
-        }
-
-        .somot-play-button:hover {
-            background-color: #2d5016;
-            transform: scale(1.1);
-        }
-
-        .somot-play-icon {
-            width: 48px;
-            height: 48px;
-            fill: #2d5016;
-            transition: fill 0.3s ease;
-        }
-
-        .somot-play-button:hover .somot-play-icon {
-            fill: #FFFDF1;
+            width: 100%;
+            height: 100%;
+            border-radius: 12px;
         }
 
         /* ============================================ */
@@ -837,16 +840,16 @@ function somot_reservation_inline_css() {
         /* ============================================ */
         @media (max-width: 1024px) {
             .somot-hero-title {
-                font-size: 42px;
+                font-size: 32px;
             }
 
-            .somot-form-grid {
+            .somot-subtitle {
+                font-size: 22px;
+            }
+
+            .somot-video-grid {
                 grid-template-columns: 1fr;
-                gap: 30px;
-            }
-
-            .somot-video-section {
-                background-attachment: scroll;
+                gap: 20px;
             }
 
             .reservation-title {
@@ -865,6 +868,10 @@ function somot_reservation_inline_css() {
                 font-size: 28px;
             }
 
+            .somot-subtitle {
+                font-size: 20px;
+            }
+
             .somot-breadcrumb {
                 font-size: 12px;
             }
@@ -875,6 +882,10 @@ function somot_reservation_inline_css() {
 
             .somot-container {
                 padding: 0 15px;
+            }
+
+            .somot-form-center {
+                max-width: 100%;
             }
 
             .somot-reservation-card {
@@ -919,23 +930,13 @@ function somot_reservation_inline_css() {
                 min-width: 0;
             }
 
-            .somot-image-wrapper {
-                display: none;
-            }
-
             .somot-video-section {
-                min-height: 250px;
-                margin-bottom: 40px;
+                padding: 30px 0;
+                margin: 40px 0;
             }
 
-            .somot-play-button {
-                width: 72px;
-                height: 72px;
-            }
-
-            .somot-play-icon {
-                width: 36px;
-                height: 36px;
+            .somot-video-grid {
+                gap: 15px;
             }
         }
 
