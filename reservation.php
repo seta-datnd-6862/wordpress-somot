@@ -31,6 +31,39 @@ function somot_get_branches() {
     );
 }
 
+function somot_get_all_branches_info() {
+    return array(
+        array(
+            'id' => 1,
+            'name' => 'So Mot Vietnamese Restaurant Tayuman St. cor. Oroquieta St.',
+            'phone' => '+63 929 573 6960',
+            'hours' => '08:00 AM – 10:00 PM',
+            'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines'
+        ),
+        array(
+            'id' => 2,
+            'name' => 'So Mot Vietnamese Restaurant Pioneer Center Supermarket',
+            'phone' => '+63 928 945 2998',
+            'hours' => '07:00 AM – 11:00 PM',
+            'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines'
+        ),
+        array(
+            'id' => 3,
+            'name' => 'So Mot Vietnamese Kiosk Unimart, Capitol Commons',
+            'phone' => '0969 049 8158',
+            'hours' => '09:00 AM – 09:30 PM',
+            'address' => 'Ground Floor, Unimart at Capitol Commons, Shaw Blvd, Pasig, Metro Manila, Philippines'
+        ),
+        array(
+            'id' => 4,
+            'name' => 'So Mot Vietnamese Restaurant 4th Floor, Ayala Malls Cloverleaf',
+            'phone' => '+63 969 151 1222',
+            'hours' => '09:00 AM – 09:30 PM',
+            'address' => 'A. Bonifacio Ave, Quezon City, 1115 Metro Manila, Philippines'
+        ),
+    );
+}
+
 // ============================================================================
 // REGISTER CUSTOM POST TYPE
 // ============================================================================
@@ -223,9 +256,9 @@ function somot_reservation_form_shortcode($atts) {
                             </select>
                         </div>
 
-                        <div class="form-group form-group-hidden">
-                            <label>Until? <span class="required">*</span></label>
-                            <select id="reservation_end_time" name="reservation_end_time" required>
+                        <div class="form-group">
+                            <label>Until?</label>
+                            <select id="reservation_end_time" name="reservation_end_time">
                                 <option value="">Start time here</option>
                                 <option value="10:00">10:00 AM</option>
                                 <option value="10:30">10:30 AM</option>
@@ -279,6 +312,32 @@ function somot_reservation_form_shortcode($atts) {
                     <button type="submit" id="submit-reservation" class="btn btn-primary">Book a table</button>
                 </div>
             </form>
+        </div>
+
+        <!-- Branches Information Section -->
+        <div class="somot-branches-section">
+            <h3 class="branches-title">Our Locations</h3>
+            <div class="branches-grid">
+                <?php foreach (somot_get_all_branches_info() as $branch): ?>
+                    <div class="branch-card">
+                        <h4 class="branch-name"><?php echo esc_html($branch['name']); ?></h4>
+                        <div class="branch-info">
+                            <p class="branch-detail">
+                                <span class="branch-label">Phone:</span> 
+                                <a href="tel:<?php echo esc_attr(str_replace(' ', '', $branch['phone'])); ?>"><?php echo esc_html($branch['phone']); ?></a>
+                            </p>
+                            <p class="branch-detail">
+                                <span class="branch-label">Hours Open:</span> 
+                                <?php echo esc_html($branch['hours']); ?>
+                            </p>
+                            <p class="branch-detail">
+                                <span class="branch-label">Address:</span> 
+                                <?php echo esc_html($branch['address']); ?>
+                            </p>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
         </div>
     </div>
     <?php
@@ -494,6 +553,85 @@ function somot_reservation_inline_css() {
         }
 
         /* ============================================ */
+        /* BRANCHES INFORMATION SECTION */
+        /* ============================================ */
+        .somot-branches-section {
+            margin-top: 60px;
+            padding: 40px 0;
+        }
+
+        .branches-title {
+            text-align: center;
+            font-size: 32px;
+            font-weight: 800;
+            color: #2d5016;
+            margin-bottom: 40px;
+            font-family: "Quicksand", Sans-serif;
+            text-transform: capitalize;
+            letter-spacing: 1px;
+        }
+
+        .branches-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .branch-card {
+            background-color: #fff4d1;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .branch-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        }
+
+        .branch-name {
+            color: #3B7D3B;
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 20px 0;
+            line-height: 1.4;
+            font-family: "Quicksand", Sans-serif;
+        }
+
+        .branch-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .branch-detail {
+            margin: 0;
+            line-height: 1.6;
+            color: #000000;
+            font-size: 15px;
+            font-family: "Quicksand", Sans-serif;
+        }
+
+        .branch-label {
+            font-weight: 700;
+            color: #000000;
+        }
+
+        .branch-detail a {
+            color: #000000;
+            text-decoration: none;
+            font-weight: 700;
+        }
+
+        .branch-detail a:hover {
+            color: #3B7D3B;
+            text-decoration: underline;
+        }
+
+        /* ============================================ */
         /* VIDEO SECTION */
         /* ============================================ */
         .somot-video-section {
@@ -513,7 +651,7 @@ function somot_reservation_inline_css() {
             position: relative;
             width: 100%;
             padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-            height: 0;
+            height: 300px;
             overflow: hidden;
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -697,6 +835,7 @@ function somot_reservation_inline_css() {
             color: #FFFDF1;
             flex: 1;
             min-width: 200px;
+            padding: 0 24px;
         }
 
         .btn-primary:hover {
@@ -847,6 +986,15 @@ function somot_reservation_inline_css() {
                 font-size: 22px;
             }
 
+            .branches-grid {
+                grid-template-columns: 1fr;
+                gap: 24px;
+            }
+
+            .branches-title {
+                font-size: 28px;
+            }
+
             .somot-video-grid {
                 grid-template-columns: 1fr;
                 gap: 20px;
@@ -928,6 +1076,34 @@ function somot_reservation_inline_css() {
             .btn {
                 width: 100%;
                 min-width: 0;
+            }
+
+            /* Branches Section Mobile */
+            .somot-branches-section {
+                margin-top: 40px;
+                padding: 30px 0;
+            }
+
+            .branches-title {
+                font-size: 24px;
+                margin-bottom: 30px;
+            }
+
+            .branches-grid {
+                gap: 20px;
+            }
+
+            .branch-card {
+                padding: 20px;
+            }
+
+            .branch-name {
+                font-size: 18px;
+                margin-bottom: 15px;
+            }
+
+            .branch-detail {
+                font-size: 14px;
             }
 
             .somot-video-section {
