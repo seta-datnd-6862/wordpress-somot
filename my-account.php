@@ -250,45 +250,16 @@ function my_account_login_register_forms() {
 function get_social_login_buttons() {
     ob_start();
     
-    // Kiểm tra plugin XS Social Login có active không
-    $has_wslu = class_exists('Xs_Social_Login') || function_exists('xs_social_login');
-    
-    if ($has_wslu) {
-        // Tích hợp thật với plugin
-        ?>
-        <div class="mat-social-login">
-            <?php
-            $current_url = urlencode(get_permalink());
-            
-            // Google Login
-            $google_url = home_url("/wp-json/wslu-social-login/type/google?XScurrentPage={$current_url}");
-            ?>
-            <a href="<?php echo esc_url($google_url); ?>" class="mat-btn-social mat-btn-gg">
-                <span>G</span> Login with Google
-            </a>
-            
-            <?php
-            // Facebook Login (nếu được enable)
-            $fb_url = home_url("/wp-json/wslu-social-login/type/facebook?XScurrentPage={$current_url}");
-            ?>
-            <a href="<?php echo esc_url($fb_url); ?>" class="mat-btn-social mat-btn-fb">
-                <span>f</span> Login with Facebook
-            </a>
-        </div>
-        <?php
-    } else {
-        // Fallback: Buttons không hoạt động (giữ cho đẹp)
-        ?>
-        <div class="mat-social-login">
-            <button type="button" class="mat-btn-social mat-btn-gg" onclick="alert('Please install XS Social Login plugin')">
-                <span>G</span> Login with Google
-            </button>
-            <button type="button" class="mat-btn-social mat-btn-fb" onclick="alert('Please install XS Social Login plugin')">
-                <span>f</span> Login with Facebook
-            </button>
-        </div>
-        <?php
-    }
+    // Luôn render button thật (plugin đã có sẵn)
+    $current_url = urlencode(get_permalink());
+    $google_url = home_url("/wp-json/wslu-social-login/type/google?XScurrentPage={$current_url}");
+    ?>
+    <div class="mat-social-login">
+        <a href="<?php echo esc_url($google_url); ?>" class="mat-btn-social mat-btn-gg">
+            <span>G</span> Login with Google
+        </a>
+    </div>
+    <?php
     
     return ob_get_clean();
 }
@@ -360,9 +331,16 @@ function get_my_account_inline_styles() {
     return '
         * { box-sizing: border-box; }
         
+        /* Ẩn page title */
+        .entry-title,
+        h1.entry-title,
+        .page-title {
+            display: none !important;
+        }
+        
         /* Header */
         .mat-header {
-            background: #2d6a4f;
+            background: #3B7D3B;
             padding: 40px 20px;
             text-align: center;
             margin: -20px -20px 0 -20px;
@@ -382,7 +360,6 @@ function get_my_account_inline_styles() {
             display: flex;
             max-width: 1400px;
             margin: 0 auto;
-            background: #fff;
         }
         
         .mat-wrapper-auth {
@@ -415,7 +392,7 @@ function get_my_account_inline_styles() {
         }
         
         .mat-form-column h2 {
-            color: #2d6a4f;
+            color: #3B7D3B;
             margin: 0 0 25px;
             text-align: center;
             font-size: 28px;
@@ -444,7 +421,7 @@ function get_my_account_inline_styles() {
         .mat-greeting {
             display: flex;
             flex-direction: column;
-            color: #2d6a4f;
+            color: #3B7D3B;
             margin-top: 15px;
         }
         
@@ -471,14 +448,14 @@ function get_my_account_inline_styles() {
             padding: 12px 16px;
             background: #fff;
             border-radius: 8px;
-            color: #2d6a4f;
+            color: #3B7D3B;
             text-decoration: none;
             font-weight: 500;
             transition: all 0.2s;
         }
         
         .mat-menu-item:hover {
-            background: #2d6a4f;
+            background: #3B7D3B;
             color: #fff;
         }
         
@@ -488,7 +465,7 @@ function get_my_account_inline_styles() {
         
         .mat-home {
             margin-top: 10px;
-            background: #2d6a4f !important;
+            background: #3B7D3B !important;
             color: #fff !important;
         }
         
@@ -508,7 +485,7 @@ function get_my_account_inline_styles() {
             flex: 1;
             padding: 18px 15px;
             text-align: center;
-            color: #2d6a4f;
+            color: #3B7D3B;
             text-decoration: none;
             font-weight: 500;
             cursor: pointer;
@@ -525,7 +502,7 @@ function get_my_account_inline_styles() {
         }
         
         .mat-tab.active {
-            border-bottom-color: #2d6a4f;
+            border-bottom-color: #3B7D3B;
             font-weight: 600;
         }
         
@@ -590,7 +567,7 @@ function get_my_account_inline_styles() {
         .mat-order-details h3 {
             margin: 0 0 5px;
             font-size: 16px;
-            color: #2d6a4f;
+            color: #3B7D3B;
         }
         
         .mat-order-details p {
@@ -622,14 +599,14 @@ function get_my_account_inline_styles() {
         }
         
         .mat-btn-pay {
-            background: #2d6a4f;
+            background: #3B7D3B;
             color: #fff;
         }
         
         .mat-btn-view {
             background: #fff;
-            color: #2d6a4f;
-            border: 2px solid #2d6a4f;
+            color: #3B7D3B;
+            border: 2px solid #3B7D3B;
         }
         
         .mat-btn-cancel {
@@ -653,7 +630,7 @@ function get_my_account_inline_styles() {
             padding: 20px;
             background: #f8f9fa;
             border-radius: 8px;
-            border-left: 4px solid #2d6a4f;
+            border-left: 4px solid #3B7D3B;
         }
         
         .mat-res-waiting,
@@ -691,7 +668,7 @@ function get_my_account_inline_styles() {
             display: flex;
             gap: 20px;
             font-weight: 600;
-            color: #2d6a4f;
+            color: #3B7D3B;
         }
         
         .mat-res-details p {
@@ -757,7 +734,7 @@ function get_my_account_inline_styles() {
         }
         
         .mat-address-block h3 {
-            color: #2d6a4f;
+            color: #3B7D3B;
             margin: 0 0 15px;
         }
         
@@ -797,7 +774,7 @@ function get_my_account_inline_styles() {
         .mat-form-group input:focus,
         .mat-form-group textarea:focus {
             outline: none;
-            border-color: #2d6a4f;
+            border-color: #3B7D3B;
         }
         
         .mat-form-group small {
