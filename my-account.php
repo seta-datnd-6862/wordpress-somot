@@ -1,30 +1,41 @@
+<?php
 /**
- * My Account Test - Đúng Layout Gốc
- * Layout: MY ACCOUNT header + Sidebar bên trái + Tabs + Content
+ * My Account - OPTION 1: Toggle Inline Login/Register
+ * - Single page /my-account với toggle giữa Login và Register
+ * - Tích hợp XS Social Login (WSLU plugin)
+ * - Layout đẹp với header, sidebar, tabs
  */
 
-// 1. Tạo page (hoặc update page có sẵn)
-add_action('init', 'create_my_account_test_page_v2');
-function create_my_account_test_page_v2() {
-    $page_slug = 'my-account-test';
+// ============================================
+// 1. MY ACCOUNT PAGE
+// ============================================
+
+add_action('init', 'create_my_account_inline');
+function create_my_account_inline() {
+    $page_slug = 'my-account';
     $page_check = get_page_by_path($page_slug);
     
     if (!$page_check) {
         wp_insert_post(array(
-            'post_title'    => 'My Account Test',
+            'post_title'    => 'My account',
             'post_name'     => $page_slug,
             'post_status'   => 'publish',
             'post_type'     => 'page',
-            'post_content'  => '[my_account_test_content]',
+            'post_content'  => '[my_account_inline]',
+        ));
+    } else {
+        wp_update_post(array(
+            'ID'           => $page_check->ID,
+            'post_content' => '[my_account_inline]',
         ));
     }
 }
 
-// 2. Shortcode - PHẢI DÙNG TÊN NÀY để khớp với page có sẵn
-add_shortcode('my_account_test_content', 'my_account_test_v2_func');
-function my_account_test_v2_func() {
+// Shortcode My Account
+add_shortcode('my_account_inline', 'my_account_inline_func');
+function my_account_inline_func() {
     if (!is_user_logged_in()) {
-        return my_account_login_form_v2();
+        return my_account_login_register_forms();
     }
     
     $current_user = wp_get_current_user();
@@ -32,6 +43,321 @@ function my_account_test_v2_func() {
     ob_start();
     ?>
     <style>
+        <?php echo get_my_account_inline_styles(); ?>
+    </style>
+    
+    <!-- MY ACCOUNT Header -->
+    <div class="mat-header">
+        <h1>MY ACCOUNT</h1>
+    </div>
+    
+    <div class="mat-wrapper">
+        <!-- Sidebar -->
+        <div class="mat-sidebar">
+            <div class="mat-user-info">
+                <div class="mat-avatar">
+                    <?php echo get_avatar(get_current_user_id(), 100); ?>
+                </div>
+                <div class="mat-greeting">
+                    <span class="mat-hi">Hi</span>
+                    <span class="mat-username"><?php echo esc_html($current_user->display_name); ?></span>
+                </div>
+            </div>
+            
+            <nav class="mat-menu">
+                <a href="#address" class="mat-menu-item" data-tab="address">
+                    <span class="mat-icon">📍</span>
+                    <span>Address</span>
+                </a>
+                <a href="#account-details" class="mat-menu-item" data-tab="account-details">
+                    <span class="mat-icon">📋</span>
+                    <span>Account Details</span>
+                </a>
+                <a href="<?php echo wp_logout_url(home_url()); ?>" class="mat-menu-item">
+                    <span class="mat-icon">🔓</span>
+                    <span>Log Out</span>
+                </a>
+                <a href="<?php echo home_url(); ?>" class="mat-menu-item mat-home">
+                    <span class="mat-icon">🏠</span>
+                    <span>Home</span>
+                </a>
+            </nav>
+        </div>
+        
+        <!-- Main Area -->
+        <div class="mat-main">
+            <!-- Tabs -->
+            <div class="mat-tabs">
+                <a href="#dashboard" class="mat-tab active" data-content="dashboard">
+                    <span class="mat-tab-icon">👤</span> Dashboard
+                </a>
+                <a href="#orders" class="mat-tab" data-content="orders">
+                    <span class="mat-tab-icon">🛒</span> Order
+                </a>
+                <a href="#reservations" class="mat-tab" data-content="reservations">
+                    <span class="mat-tab-icon">📅</span> Reservations
+                </a>
+                <a href="<?php echo wc_get_cart_url(); ?>" class="mat-tab mat-tab-link">
+                    <span class="mat-tab-icon">🛒</span> Cart
+                </a>
+            </div>
+            
+            <!-- Content -->
+            <div class="mat-content">
+                <div class="mat-section active" id="dashboard">
+                    <?php echo get_dashboard_inline(); ?>
+                </div>
+                
+                <div class="mat-section" id="orders">
+                    <?php echo get_orders_inline(); ?>
+                </div>
+                
+                <div class="mat-section" id="reservations">
+                    <?php echo get_reservations_inline(); ?>
+                </div>
+                
+                <div class="mat-section" id="address">
+                    <?php echo get_address_inline(); ?>
+                </div>
+                
+                <div class="mat-section" id="account-details">
+                    <?php echo get_account_details_inline(); ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+// ============================================
+// 2. LOGIN & REGISTER FORMS (Toggle Inline)
+// ============================================
+
+function my_account_login_register_forms() {
+    // Xử lý registration
+    $error_message = '';
+    $show_register = false;
+    
+    if (isset($_POST['register_user_inline'])) {
+        $error_message = handle_user_registration_inline();
+        $show_register = true;
+    }
+    
+    ob_start();
+    ?>
+    <style>
+        <?php echo get_my_account_inline_styles(); ?>
+    </style>
+    
+    <!-- MY ACCOUNT Header -->
+    <div class="mat-header">
+        <h1>MY ACCOUNT</h1>
+    </div>
+    
+    <div class="mat-wrapper mat-wrapper-auth">
+        <!-- Forms Container -->
+        <div class="mat-auth-container">
+            <?php if (!empty($error_message)) : ?>
+                <div class="mat-error-message">
+                    <span class="mat-error-icon">⚠️</span>
+                    <?php echo $error_message; ?>
+                </div>
+            <?php endif; ?>
+            
+            <div class="mat-forms-wrapper">
+                <!-- Login Form -->
+                <div class="mat-form-column mat-login-column <?php echo !$show_register ? 'active' : ''; ?>">
+                    <h2>Login</h2>
+                    
+                    <?php echo get_social_login_buttons(); ?>
+                    
+                    <form method="post" action="<?php echo esc_url(wp_login_url(get_permalink())); ?>" class="mat-form mat-login-form">
+                        <div class="mat-form-group">
+                            <label>Username or email address *</label>
+                            <input type="text" name="log" required>
+                        </div>
+                        
+                        <div class="mat-form-group">
+                            <label>Password *</label>
+                            <input type="password" name="pwd" required>
+                        </div>
+                        
+                        <div class="mat-checkbox">
+                            <input type="checkbox" name="rememberme" value="forever" id="rememberme">
+                            <label for="rememberme">Remember me</label>
+                        </div>
+                        
+                        <button type="submit" class="mat-btn-submit">Log in</button>
+                        
+                        <p class="mat-lost-pw">
+                            <a href="https://so-mot.com/my-account/lost-password/">Lost your password?</a>
+                        </p>
+                        
+                        <p class="mat-toggle-form">
+                            Not a member? <a href="#" class="mat-toggle-link" data-target="register">Register</a>
+                        </p>
+                    </form>
+                </div>
+                
+                <!-- Register Form -->
+                <div class="mat-form-column mat-register-column <?php echo $show_register ? 'active' : ''; ?>">
+                    <h2>Register</h2>
+                    
+                    <form method="post" action="" class="mat-form mat-register-form">
+                        <div class="mat-form-group">
+                            <label>Email address *</label>
+                            <input type="email" name="email" value="<?php echo isset($_POST['email']) ? esc_attr($_POST['email']) : ''; ?>" required>
+                        </div>
+                        
+                        <div class="mat-form-row">
+                            <div class="mat-form-group">
+                                <label>First name</label>
+                                <input type="text" name="first_name" value="<?php echo isset($_POST['first_name']) ? esc_attr($_POST['first_name']) : ''; ?>">
+                            </div>
+                            <div class="mat-form-group">
+                                <label>Last name</label>
+                                <input type="text" name="last_name" value="<?php echo isset($_POST['last_name']) ? esc_attr($_POST['last_name']) : ''; ?>">
+                            </div>
+                        </div>
+                        
+                        <p class="mat-register-note">
+                            A link to set a new password will be sent to your email address.
+                        </p>
+                        
+                        <p class="mat-privacy-note">
+                            Your personal data will be used to support your experience throughout this website, 
+                            to manage access to your account, and for other purposes described in our 
+                            <a href="<?php echo get_privacy_policy_url(); ?>" target="_blank">privacy policy</a>.
+                        </p>
+                        
+                        <button type="submit" name="register_user_inline" class="mat-btn-submit">Register</button>
+                        <?php wp_nonce_field('register_user_inline', 'register_user_inline_nonce'); ?>
+                        
+                        <p class="mat-toggle-form">
+                            Already a member? <a href="#" class="mat-toggle-link" data-target="login">Login</a>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+// Social Login Buttons
+function get_social_login_buttons() {
+    ob_start();
+    
+    // Kiểm tra plugin XS Social Login có active không
+    $has_wslu = class_exists('Xs_Social_Login') || function_exists('xs_social_login');
+    
+    if ($has_wslu) {
+        // Tích hợp thật với plugin
+        ?>
+        <div class="mat-social-login">
+            <?php
+            $current_url = urlencode(get_permalink());
+            
+            // Google Login
+            $google_url = home_url("/wp-json/wslu-social-login/type/google?XScurrentPage={$current_url}");
+            ?>
+            <a href="<?php echo esc_url($google_url); ?>" class="mat-btn-social mat-btn-gg">
+                <span>G</span> Login with Google
+            </a>
+            
+            <?php
+            // Facebook Login (nếu được enable)
+            $fb_url = home_url("/wp-json/wslu-social-login/type/facebook?XScurrentPage={$current_url}");
+            ?>
+            <a href="<?php echo esc_url($fb_url); ?>" class="mat-btn-social mat-btn-fb">
+                <span>f</span> Login with Facebook
+            </a>
+        </div>
+        <?php
+    } else {
+        // Fallback: Buttons không hoạt động (giữ cho đẹp)
+        ?>
+        <div class="mat-social-login">
+            <button type="button" class="mat-btn-social mat-btn-gg" onclick="alert('Please install XS Social Login plugin')">
+                <span>G</span> Login with Google
+            </button>
+            <button type="button" class="mat-btn-social mat-btn-fb" onclick="alert('Please install XS Social Login plugin')">
+                <span>f</span> Login with Facebook
+            </button>
+        </div>
+        <?php
+    }
+    
+    return ob_get_clean();
+}
+
+// Xử lý registration
+function handle_user_registration_inline() {
+    if (!isset($_POST['register_user_inline_nonce']) || !wp_verify_nonce($_POST['register_user_inline_nonce'], 'register_user_inline')) {
+        return 'Invalid request.';
+    }
+    
+    $email = sanitize_email($_POST['email']);
+    $first_name = sanitize_text_field($_POST['first_name']);
+    $last_name = sanitize_text_field($_POST['last_name']);
+    
+    if (empty($email) || !is_email($email)) {
+        return 'Please provide a valid email address.';
+    }
+    
+    if (email_exists($email)) {
+        return 'An account is already registered with ' . $email . '. Please log in or use a different email address.';
+    }
+    
+    $username = sanitize_user(current(explode('@', $email)), true);
+    $append = 1;
+    $o_username = $username;
+    while (username_exists($username)) {
+        $username = $o_username . $append;
+        $append++;
+    }
+    
+    $user_id = wp_create_user($username, wp_generate_password(), $email);
+    
+    if (is_wp_error($user_id)) {
+        return $user_id->get_error_message();
+    }
+    
+    wp_update_user(array(
+        'ID' => $user_id,
+        'first_name' => $first_name,
+        'last_name' => $last_name,
+        'display_name' => trim($first_name . ' ' . $last_name) ?: $username,
+    ));
+    
+    $user = get_userdata($user_id);
+    $reset_key = get_password_reset_key($user);
+    
+    if (!is_wp_error($reset_key)) {
+        $reset_url = network_site_url("wp-login.php?action=rp&key=$reset_key&login=" . rawurlencode($user->user_login), 'login');
+        
+        $message = "Hi " . ($first_name ?: 'there') . ",\n\n";
+        $message .= "Welcome to " . get_bloginfo('name') . "!\n\n";
+        $message .= "To set your password, please click the link below:\n";
+        $message .= $reset_url . "\n\n";
+        $message .= "If you did not request this, please ignore this email.\n\n";
+        $message .= "Thanks!";
+        
+        wp_mail($email, 'Welcome to ' . get_bloginfo('name'), $message);
+    }
+    
+    wp_redirect(add_query_arg('registered', 'true', home_url('/my-account')));
+    exit;
+}
+
+// ============================================
+// 3. STYLES
+// ============================================
+
+function get_my_account_inline_styles() {
+    return '
         * { box-sizing: border-box; }
         
         /* Header */
@@ -57,6 +383,42 @@ function my_account_test_v2_func() {
             max-width: 1400px;
             margin: 0 auto;
             background: #fff;
+        }
+        
+        .mat-wrapper-auth {
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        
+        /* Auth Container */
+        .mat-auth-container {
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        .mat-forms-wrapper {
+            display: flex;
+            gap: 40px;
+            margin-top: 20px;
+        }
+        
+        .mat-form-column {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 12px;
+            display: none;
+        }
+        
+        .mat-form-column.active {
+            display: block;
+        }
+        
+        .mat-form-column h2 {
+            color: #2d6a4f;
+            margin: 0 0 25px;
+            text-align: center;
+            font-size: 28px;
         }
         
         /* Sidebar */
@@ -240,6 +602,7 @@ function my_account_test_v2_func() {
         .mat-order-actions {
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
         
         .mat-btn {
@@ -251,6 +614,11 @@ function my_account_test_v2_func() {
             border: none;
             cursor: pointer;
             display: inline-block;
+        }
+        
+        .mat-btn-tracking {
+            background: #ff9800;
+            color: #fff;
         }
         
         .mat-btn-pay {
@@ -268,34 +636,6 @@ function my_account_test_v2_func() {
             background: #fff;
             color: #d32f2f;
             border: 2px solid #d32f2f;
-        }
-        
-        /* Downloads */
-        .mat-downloads-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        .mat-downloads-table th,
-        .mat-downloads-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        .mat-downloads-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #2d6a4f;
-        }
-        
-        .mat-btn-download {
-            padding: 6px 12px;
-            background: #2d6a4f;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 4px;
-            display: inline-block;
         }
         
         /* Reservations */
@@ -343,6 +683,8 @@ function my_account_test_v2_func() {
             display: flex;
             justify-content: space-between;
             margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         .mat-res-datetime {
@@ -440,16 +782,20 @@ function my_account_test_v2_func() {
             display: block;
             margin-bottom: 8px;
             font-weight: 500;
+            color: #333;
         }
         
-        .mat-form-group input {
+        .mat-form-group input,
+        .mat-form-group textarea {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 6px;
+            font-size: 15px;
         }
         
-        .mat-form-group input:focus {
+        .mat-form-group input:focus,
+        .mat-form-group textarea:focus {
             outline: none;
             border-color: #2d6a4f;
         }
@@ -461,8 +807,10 @@ function my_account_test_v2_func() {
             color: #999;
         }
         
+        .mat-btn-submit,
         .mat-btn-save {
-            padding: 12px 30px;
+            width: 100%;
+            padding: 14px;
             background: #40b9d4;
             color: #fff;
             border: none;
@@ -470,26 +818,17 @@ function my_account_test_v2_func() {
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s;
         }
         
-        /* Login */
-        .mat-login {
-            max-width: 500px;
-            margin: 40px auto;
-            padding: 40px;
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        .mat-btn-submit:hover,
+        .mat-btn-save:hover {
+            background: #35a0bb;
         }
         
-        .mat-login h2 {
-            text-align: center;
-            color: #2d6a4f;
-            margin-bottom: 30px;
-        }
-        
+        /* Social Login */
         .mat-social-login {
-            margin-bottom: 20px;
+            margin-bottom: 25px;
         }
         
         .mat-btn-social {
@@ -501,6 +840,18 @@ function my_account_test_v2_func() {
             background: #fff;
             cursor: pointer;
             font-size: 15px;
+            font-weight: 500;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+        }
+        
+        .mat-btn-social span:first-child {
+            font-weight: 700;
+            font-size: 18px;
         }
         
         .mat-btn-fb {
@@ -508,21 +859,19 @@ function my_account_test_v2_func() {
             border-color: #1877f2;
         }
         
+        .mat-btn-fb:hover {
+            background: #1877f2;
+            color: #fff;
+        }
+        
         .mat-btn-gg {
             color: #db4437;
             border-color: #db4437;
         }
         
-        .mat-btn-login {
-            width: 100%;
-            padding: 12px;
-            background: #40b9d4;
+        .mat-btn-gg:hover {
+            background: #db4437;
             color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
         }
         
         .mat-checkbox {
@@ -532,29 +881,56 @@ function my_account_test_v2_func() {
             margin: 15px 0;
         }
         
+        .mat-checkbox input {
+            width: auto;
+        }
+        
         .mat-lost-pw,
-        .mat-register {
+        .mat-toggle-form {
             text-align: center;
             margin-top: 15px;
         }
         
         .mat-lost-pw a,
-        .mat-register a {
+        .mat-toggle-form a {
+            color: #d32f2f;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .mat-lost-pw a:hover,
+        .mat-toggle-form a:hover {
+            text-decoration: underline;
+        }
+        
+        .mat-register-note,
+        .mat-privacy-note {
+            font-size: 14px;
+            color: #d32f2f;
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+        
+        .mat-privacy-note {
+            color: #666;
+        }
+        
+        .mat-privacy-note a {
             color: #d32f2f;
             text-decoration: none;
         }
         
-        .mat-payment-list {
-            list-style: none;
-            padding: 0;
-            margin: 20px 0;
+        .mat-error-message {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #c62828;
         }
         
-        .mat-payment-list li {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 10px;
+        .mat-error-icon {
+            margin-right: 8px;
         }
         
         /* Responsive */
@@ -573,6 +949,14 @@ function my_account_test_v2_func() {
             
             .mat-tab {
                 flex: 1 1 50%;
+            }
+            
+            .mat-forms-wrapper {
+                flex-direction: column;
+            }
+            
+            .mat-form-column {
+                display: block !important;
             }
             
             .mat-addresses {
@@ -597,116 +981,25 @@ function my_account_test_v2_func() {
                 flex-direction: row;
                 margin-top: 15px;
             }
+            
+            .mat-form-row {
+                flex-direction: column;
+            }
         }
-    </style>
-    
-    <!-- MY ACCOUNT Header -->
-    <div class="mat-header">
-        <h1>MY ACCOUNT</h1>
-    </div>
-    
-    <div class="mat-wrapper">
-        <!-- Sidebar -->
-        <div class="mat-sidebar">
-            <div class="mat-user-info">
-                <div class="mat-avatar">
-                    <?php echo get_avatar(get_current_user_id(), 100); ?>
-                </div>
-                <div class="mat-greeting">
-                    <span class="mat-hi">Hi</span>
-                    <span class="mat-username"><?php echo esc_html($current_user->display_name); ?></span>
-                </div>
-            </div>
-            
-            <nav class="mat-menu">
-                <a href="#address" class="mat-menu-item" data-tab="address">
-                    <span class="mat-icon">📍</span>
-                    <span>Address</span>
-                </a>
-                <a href="#account-details" class="mat-menu-item" data-tab="account-details">
-                    <span class="mat-icon">📋</span>
-                    <span>Account Details</span>
-                </a>
-                <a href="<?php echo wp_logout_url(home_url()); ?>" class="mat-menu-item">
-                    <span class="mat-icon">🔓</span>
-                    <span>Log Out</span>
-                </a>
-                <a href="<?php echo home_url(); ?>" class="mat-menu-item mat-home">
-                    <span class="mat-icon">🏠</span>
-                    <span>Home</span>
-                </a>
-            </nav>
-        </div>
         
-        <!-- Main Area -->
-        <div class="mat-main">
-            <!-- Tabs -->
-            <div class="mat-tabs">
-                <a href="#dashboard" class="mat-tab active" data-content="dashboard">
-                    <span class="mat-tab-icon">👤</span> Dashboard
-                </a>
-                <a href="#orders" class="mat-tab" data-content="orders">
-                    <span class="mat-tab-icon">🛒</span> Order
-                </a>
-                <a href="#downloads" class="mat-tab" data-content="downloads">
-                    <span class="mat-tab-icon">⬇️</span> Download
-                </a>
-                <a href="#payment" class="mat-tab" data-content="payment">
-                    <span class="mat-tab-icon">💳</span> Payment
-                </a>
-                <a href="#reservations" class="mat-tab" data-content="reservations">
-                    <span class="mat-tab-icon">📅</span> Reservations
-                </a>
-                <a href="<?php echo wc_get_cart_url(); ?>" class="mat-tab mat-tab-link">
-                    <span class="mat-tab-icon">🛒</span> Cart
-                </a>
-            </div>
-            
-            <!-- Content -->
-            <div class="mat-content">
-                <!-- Dashboard -->
-                <div class="mat-section active" id="dashboard">
-                    <?php echo get_dashboard_v2(); ?>
-                </div>
-                
-                <!-- Orders -->
-                <div class="mat-section" id="orders">
-                    <?php echo get_orders_v2(); ?>
-                </div>
-                
-                <!-- Downloads -->
-                <div class="mat-section" id="downloads">
-                    <?php echo get_downloads_v2(); ?>
-                </div>
-                
-                <!-- Payment -->
-                <div class="mat-section" id="payment">
-                    <?php echo get_payment_v2(); ?>
-                </div>
-                
-                <!-- Reservations -->
-                <div class="mat-section" id="reservations">
-                    <?php echo get_reservations_v2(); ?>
-                </div>
-                
-                <!-- Address -->
-                <div class="mat-section" id="address">
-                    <?php echo get_address_v2(); ?>
-                </div>
-                
-                <!-- Account Details -->
-                <div class="mat-section" id="account-details">
-                    <?php echo get_account_details_v2(); ?>
-                </div>
-            </div>
-        </div>
-    </div>
-    <?php
-    return ob_get_clean();
+        @media (min-width: 993px) {
+            .mat-forms-wrapper {
+                display: flex !important;
+            }
+        }
+    ';
 }
 
-// Content functions
-function get_dashboard_v2() {
+// ============================================
+// 4. CONTENT FUNCTIONS
+// ============================================
+
+function get_dashboard_inline() {
     $user = wp_get_current_user();
     ob_start();
     ?>
@@ -722,7 +1015,7 @@ function get_dashboard_v2() {
     return ob_get_clean();
 }
 
-function get_orders_v2() {
+function get_orders_inline() {
     if (!class_exists('WooCommerce')) return '<p>WooCommerce not active.</p>';
     
     $orders = wc_get_orders(array(
@@ -755,9 +1048,11 @@ function get_orders_v2() {
                     </div>
                 </div>
                 <div class="mat-order-actions">
-                    <?php if ($order->needs_payment()) : ?>
-                        <a href="<?php echo $order->get_checkout_payment_url(); ?>" class="mat-btn mat-btn-pay">Tracking</a>
-                    <?php endif; ?>
+                    <?php 
+                    $tracking_url = 'https://goodriver.online/guest/share/order/woocommerce/' . $order->get_order_key();
+                    ?>
+                    <a href="<?php echo esc_url($tracking_url); ?>" class="mat-btn mat-btn-tracking" target="_blank">Tracking</a>
+                    
                     <?php if ($order->needs_payment()) : ?>
                         <a href="<?php echo $order->get_checkout_payment_url(); ?>" class="mat-btn mat-btn-pay">Pay</a>
                     <?php endif; ?>
@@ -775,68 +1070,9 @@ function get_orders_v2() {
     return ob_get_clean();
 }
 
-function get_downloads_v2() {
-    if (!class_exists('WooCommerce')) return '<p>WooCommerce not active.</p>';
-    
-    $downloads = WC()->customer->get_downloadable_products();
-    
-    ob_start();
-    ?>
-    <?php if ($downloads) : ?>
-        <table class="mat-downloads-table">
-            <thead>
-                <tr>
-                    <th>Product</th>
-                    <th>Downloads remaining</th>
-                    <th>Expires</th>
-                    <th>Download</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($downloads as $download) : ?>
-                    <tr>
-                        <td><?php echo esc_html($download['product_name']); ?></td>
-                        <td><?php echo is_numeric($download['downloads_remaining']) ? $download['downloads_remaining'] : '∞'; ?></td>
-                        <td><?php echo $download['access_expires'] ? date('Y-m-d', strtotime($download['access_expires'])) : 'Never'; ?></td>
-                        <td><a href="<?php echo esc_url($download['download_url']); ?>" class="mat-btn-download">Download</a></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php else : ?>
-        <p>No downloads available.</p>
-    <?php endif; ?>
-    <?php
-    return ob_get_clean();
-}
-
-function get_payment_v2() {
-    if (!class_exists('WooCommerce')) return '<p>WooCommerce not active.</p>';
-    
-    $saved_methods = wc_get_customer_saved_methods_list(get_current_user_id());
-    
-    ob_start();
-    ?>
-    <h2>Payment Methods</h2>
-    <?php if (!empty($saved_methods)) : ?>
-        <ul class="mat-payment-list">
-            <?php foreach ($saved_methods as $type => $methods) : ?>
-                <?php foreach ($methods as $method) : ?>
-                    <li><?php echo esc_html($method['method']['last4'] ?? $type); ?> - Expires <?php echo esc_html($method['expires'] ?? 'N/A'); ?></li>
-                <?php endforeach; ?>
-            <?php endforeach; ?>
-        </ul>
-    <?php else : ?>
-        <p>No saved payment methods.</p>
-    <?php endif; ?>
-    <?php
-    return ob_get_clean();
-}
-
-function get_reservations_v2() {
+function get_reservations_inline() {
     $user = wp_get_current_user();
     
-    // Tìm post type
     $possible_types = array('reservation', 'reservations', 'booking', 'bookings', 'rtb-booking');
     $post_type = '';
     
@@ -851,7 +1087,6 @@ function get_reservations_v2() {
         return '<p>Reservation system not configured.</p>';
     }
     
-    // Lấy reservations
     $args = array(
         'post_type' => $post_type,
         'posts_per_page' => -1,
@@ -877,7 +1112,6 @@ function get_reservations_v2() {
         $reservations = get_posts($args);
     }
     
-    // Tách upcoming/past
     $upcoming = array();
     $past = array();
     $today = current_time('Y-m-d');
@@ -932,6 +1166,11 @@ function get_reservations_v2() {
                     </div>
                 </div>
                 <div class="mat-res-actions">
+                    <?php if ($order_key) : 
+                        $tracking_url = 'https://goodriver.online/guest/reservation/track/' . $order_key;
+                    ?>
+                        <a href="<?php echo esc_url($tracking_url); ?>" class="mat-btn mat-btn-tracking" target="_blank">Tracking</a>
+                    <?php endif; ?>
                     <a href="<?php echo get_edit_post_link($res->ID); ?>" class="mat-btn mat-btn-view" target="_blank">View</a>
                 </div>
             </div>
@@ -968,7 +1207,7 @@ function get_reservations_v2() {
     return ob_get_clean();
 }
 
-function get_address_v2() {
+function get_address_inline() {
     if (!class_exists('WooCommerce')) return '<p>WooCommerce not active.</p>';
     
     $customer = new WC_Customer(get_current_user_id());
@@ -1021,7 +1260,7 @@ function get_address_v2() {
     return ob_get_clean();
 }
 
-function get_account_details_v2() {
+function get_account_details_inline() {
     $user = wp_get_current_user();
     
     ob_start();
@@ -1066,59 +1305,21 @@ function get_account_details_v2() {
             <input type="password" name="confirm_password">
         </div>
         
-        <button type="submit" name="save_account_v2" class="mat-btn-save">Save changes</button>
-        <?php wp_nonce_field('save_account_v2', 'save_account_v2_nonce'); ?>
+        <button type="submit" name="save_account_inline" class="mat-btn-save">Save changes</button>
+        <?php wp_nonce_field('save_account_inline', 'save_account_inline_nonce'); ?>
     </form>
     <?php
     return ob_get_clean();
 }
 
-function my_account_login_form_v2() {
-    ob_start();
-    ?>
-    <div class="mat-login">
-        <h2>Login</h2>
-        
-        <div class="mat-social-login">
-            <button class="mat-btn-social mat-btn-fb">
-                <span>f</span> Login with Facebook
-            </button>
-            <button class="mat-btn-social mat-btn-gg">
-                <span>G</span> Login with Google
-            </button>
-        </div>
-        
-        <form method="post" action="<?php echo esc_url(wp_login_url()); ?>">
-            <div class="mat-form-group">
-                <label>Username or email address *</label>
-                <input type="text" name="log" required>
-            </div>
-            
-            <div class="mat-form-group">
-                <label>Password *</label>
-                <input type="password" name="pwd" required>
-            </div>
-            
-            <div class="mat-checkbox">
-                <input type="checkbox" name="rememberme" value="forever" id="remember">
-                <label for="remember">Remember me</label>
-            </div>
-            
-            <button type="submit" class="mat-btn-login">Log in</button>
-            
-            <p class="mat-lost-pw"><a href="<?php echo wp_lostpassword_url(); ?>">Lost your password?</a></p>
-            <p class="mat-register">Not a member? <a href="<?php echo wp_registration_url(); ?>">Register</a></p>
-        </form>
-    </div>
-    <?php
-    return ob_get_clean();
-}
+// ============================================
+// 5. SAVE HANDLER
+// ============================================
 
-// Save account details
-add_action('init', 'handle_save_account_v2');
-function handle_save_account_v2() {
-    if (!isset($_POST['save_account_v2']) || !isset($_POST['save_account_v2_nonce'])) return;
-    if (!wp_verify_nonce($_POST['save_account_v2_nonce'], 'save_account_v2')) return;
+add_action('init', 'handle_save_account_inline');
+function handle_save_account_inline() {
+    if (!isset($_POST['save_account_inline']) || !isset($_POST['save_account_inline_nonce'])) return;
+    if (!wp_verify_nonce($_POST['save_account_inline_nonce'], 'save_account_inline')) return;
     if (!is_user_logged_in()) return;
     
     $user_id = get_current_user_id();
@@ -1143,14 +1344,17 @@ function handle_save_account_v2() {
     exit;
 }
 
-// JS
-add_action('wp_footer', 'mat_scripts');
-function mat_scripts() {
-    if (!is_page('my-account-test')) return;
+// ============================================
+// 6. JAVASCRIPT
+// ============================================
+
+add_action('wp_footer', 'mat_scripts_inline');
+function mat_scripts_inline() {
+    if (!is_page('my-account')) return;
     ?>
     <script>
     jQuery(document).ready(function($) {
-        // Tab switching
+        // Tab switching (for logged-in users)
         $('.mat-tab').on('click', function(e) {
             if ($(this).hasClass('mat-tab-link')) return true;
             
@@ -1189,6 +1393,28 @@ function mat_scripts() {
         $('.mat-link-account').on('click', function(e) {
             e.preventDefault();
             $('.mat-menu-item[data-tab="account-details"]').click();
+        });
+        
+        // Toggle between Login and Register forms
+        $('.mat-toggle-link').on('click', function(e) {
+            e.preventDefault();
+            
+            var target = $(this).data('target');
+            
+            if (target === 'register') {
+                $('.mat-login-column').removeClass('active');
+                $('.mat-register-column').addClass('active');
+            } else {
+                $('.mat-register-column').removeClass('active');
+                $('.mat-login-column').addClass('active');
+            }
+            
+            // Scroll to top on mobile
+            if ($(window).width() < 993) {
+                $('html, body').animate({
+                    scrollTop: $('.mat-auth-container').offset().top - 20
+                }, 300);
+            }
         });
     });
     </script>
