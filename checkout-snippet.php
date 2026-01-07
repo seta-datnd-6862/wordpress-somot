@@ -123,7 +123,7 @@ function render_custom_checkout() {
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 14px;
@@ -406,6 +406,119 @@ function render_custom_checkout() {
             margin: 15px 0;
             color: #075985;
         }
+
+        /* Coupon Section */
+        .coupon-section {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .coupon-input-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .coupon-input-wrapper input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .coupon-input-wrapper input:focus {
+            outline: none;
+            border-color: #2d5016;
+        }
+
+        .coupon-apply-btn {
+            padding: 12px 24px;
+            background: #2d5016;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            white-space: nowrap;
+        }
+
+        .coupon-apply-btn:hover {
+            background: #1f3810;
+        }
+
+        .coupon-apply-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .coupon-message {
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .coupon-message.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #4caf50;
+        }
+
+        .coupon-message.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #f44336;
+        }
+
+        .applied-coupons {
+            margin-top: 15px;
+        }
+
+        .coupon-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: #e8f5e9;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #2d5016;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #4caf50;
+        }
+
+        .coupon-tag-code {
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .coupon-tag-discount {
+            color: #1b5e20;
+        }
+
+        .coupon-remove-btn {
+            background: none;
+            border: none;
+            color: #f44336;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            transition: color 0.2s;
+        }
+
+        .coupon-remove-btn:hover {
+            color: #d32f2f;
+        }
+
+        .discount-row {
+            color: #10b981;
+        }
     </style>
 
     <div class="custom-checkout-wrapper">
@@ -458,8 +571,19 @@ function render_custom_checkout() {
                             </div>
 
                             <div class="form-group">
-                                <label id="delivery-time-label">Pick up time <span class="required">*</span></label>
-                                <input type="time" name="delivery_time" id="delivery_time" required min="07:00" max="23:00">
+                                <label id="delivery-time-label" for="delivery_time">Pick up time <span class="required">*</span></label>
+                                <select name="delivery_time" id="delivery_time_select" class="test" required>
+                                    <!-- select time each 15 mins from 07:00 to 23:00 -->
+                                    <?php
+                                    for ($hour = 7; $hour < 23; $hour++) {
+                                        for ($min = 0; $min < 60; $min += 15) {
+                                            $time = sprintf('%02d:%02d', $hour, $min);
+                                            echo '<option value="' . $time . '">' . $time . '</option>';
+                                        }
+                                    }
+                                    ?>
+                                    <option value="23:00">23:00</option>
+                                </select>
                             </div>
                         </div>
 
@@ -626,6 +750,16 @@ function render_custom_checkout() {
                     <div>
                         <div class="checkout-section" style="position: sticky; top: 20px;">
                             <div class="section-title">📋 Order summary</div>
+
+                            <!-- COUPON SECTION -->
+                            <div class="coupon-section">
+                                <div class="coupon-input-wrapper">
+                                    <input type="text" id="coupon-code-input" placeholder="Enter coupon code" maxlength="50">
+                                    <button type="button" id="apply-coupon-btn" class="coupon-apply-btn">Apply</button>
+                                </div>
+                                <div id="coupon-message" class="coupon-message hidden"></div>
+                                <div id="applied-coupons" class="applied-coupons hidden"></div>
+                            </div>
 
                             <div id="order-items">
                                 <?php
@@ -794,12 +928,146 @@ function render_custom_checkout() {
 
     <script>
     jQuery(document).ready(function($) {
+
         let destinationAutocomplete;
         let selectedPlace = null;
         let branchLocation = {lat: 14.6175959, lng: 120.9837713};
         let calculatedShippingFee = 0;
         let selectedFile = null;
         let orderData = {};
+        let appliedCoupons = [];
+        let totalDiscount = 0;
+
+        // Apply Coupon
+        $('#apply-coupon-btn').click(function() {
+            const couponCode = $('#coupon-code-input').val().trim().toUpperCase();
+            
+            if (!couponCode) {
+                showCouponMessage('Please enter a coupon code', 'error');
+                return;
+            }
+            
+            // Check if coupon already applied
+            if (appliedCoupons.some(c => c.code === couponCode)) {
+                showCouponMessage('This coupon has already been applied', 'error');
+                return;
+            }
+            
+            $(this).prop('disabled', true).text('Checking...');
+            
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'validate_and_apply_coupon',
+                    coupon_code: couponCode,
+                    cart_total: parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''))
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Add coupon to applied list
+                        appliedCoupons.push({
+                            code: couponCode,
+                            discount: response.data.discount_amount,
+                            type: response.data.discount_type,
+                            description: response.data.description
+                        });
+                        
+                        // Update UI
+                        updateAppliedCouponsUI();
+                        updateOrderTotalWithCoupons();
+                        
+                        $('#coupon-code-input').val('');
+                        showCouponMessage('Coupon applied successfully! You saved ₱' + response.data.discount_amount.toFixed(2), 'success');
+                    } else {
+                        showCouponMessage(response.data.message, 'error');
+                    }
+                    
+                    $('#apply-coupon-btn').prop('disabled', false).text('Apply');
+                },
+                error: function() {
+                    showCouponMessage('Error validating coupon. Please try again.', 'error');
+                    $('#apply-coupon-btn').prop('disabled', false).text('Apply');
+                }
+            });
+        });
+
+        // Enter key to apply coupon
+        $('#coupon-code-input').keypress(function(e) {
+            if (e.which === 13) {
+                e.preventDefault();
+                $('#apply-coupon-btn').click();
+            }
+        });
+
+        // Show coupon message
+        function showCouponMessage(message, type) {
+            const $message = $('#coupon-message');
+            $message.removeClass('success error').addClass(type);
+            $message.text(message).removeClass('hidden');
+            
+            setTimeout(function() {
+                $message.addClass('hidden');
+            }, 5000);
+        }
+
+        // Update applied coupons UI
+        function updateAppliedCouponsUI() {
+            const $container = $('#applied-coupons');
+            
+            if (appliedCoupons.length === 0) {
+                $container.addClass('hidden');
+                return;
+            }
+            
+            let html = '<div style="margin-bottom: 10px; font-weight: 600; font-size: 14px;">Applied Coupons:</div>';
+            
+            appliedCoupons.forEach(function(coupon) {
+                html += '<div class="coupon-tag">' +
+                    '<span class="coupon-tag-code">' + coupon.code + '</span>' +
+                    '<span class="coupon-tag-discount">-₱' + coupon.discount.toFixed(2) + '</span>' +
+                    '<button type="button" class="coupon-remove-btn" onclick="removeCoupon(\'' + coupon.code + '\')">✕</button>' +
+                    '</div>';
+            });
+            
+            $container.html(html).removeClass('hidden');
+        }
+
+        // Remove coupon
+        window.removeCoupon = function(code) {
+            appliedCoupons = appliedCoupons.filter(c => c.code !== code);
+            updateAppliedCouponsUI();
+            updateOrderTotalWithCoupons();
+            showCouponMessage('Coupon removed', 'success');
+        };
+
+        // Update order total with coupons
+        function updateOrderTotalWithCoupons() {
+            const subtotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
+            const shippingFee = calculatedShippingFee;
+            
+            // Calculate total discount
+            totalDiscount = appliedCoupons.reduce((sum, coupon) => sum + coupon.discount, 0);
+            
+            // Calculate final total
+            const total = Math.max(0, subtotal - totalDiscount + shippingFee);
+            
+            // Update discount row in summary
+            const $summaryContainer = $('.order-summary');
+            $summaryContainer.find('.discount-row').remove();
+            
+            if (totalDiscount > 0) {
+                const discountRowHtml = '<div class="summary-row discount-row">' +
+                    '<span>Discount</span>' +
+                    '<span>-₱' + totalDiscount.toLocaleString('en-US', {minimumFractionDigits: 2}) + '</span>' +
+                    '</div>';
+                
+                $summaryContainer.find('.summary-row:last').before(discountRowHtml);
+            }
+            
+            // Update total
+            $('#total').text('₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2}));
+        }
         
         const branches = <?php echo json_encode($branches); ?>;
         
@@ -919,7 +1187,7 @@ function render_custom_checkout() {
         
         // Get shipping fee
         function getShippingFee(distance) {
-            const deliveryTime = $('#delivery_time').val();
+            const deliveryTime = $('#delivery_time_select').val();
             const deliveryDate = $('#delivery_date').val();
             const currentHour = new Date(deliveryDate + 'T' + deliveryTime).getHours();
             const nightShift = (currentHour >= 22 || currentHour <= 6) ? 1 : 0;
@@ -947,13 +1215,13 @@ function render_custom_checkout() {
         
         // Update order total
         function updateOrderTotal() {
-            const subtotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
-            const shippingFee = calculatedShippingFee;
-            const total = subtotal + shippingFee;
+            calculatedShippingFee = calculatedShippingFee || 0;
             
-            $('#shipping-fee').text('₱' + shippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
-            $('#shipping-fee-display').text('₱' + shippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
-            $('#total').text('₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2}));
+            $('#shipping-fee').text('₱' + calculatedShippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
+            $('#shipping-fee-display').text('₱' + calculatedShippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
+            
+            // Use the function that includes coupons
+            updateOrderTotalWithCoupons();
         }
         
         // Delivery type change
@@ -1033,7 +1301,7 @@ function render_custom_checkout() {
             orderData = {
                 delivery_type: deliveryType,
                 delivery_date: $('#delivery_date').val(),
-                delivery_time: $('#delivery_time').val(),
+                delivery_time: $('#delivery_time_select').val(),
                 email: $('#email').val(),
                 first_name: $('#first_name').val(),
                 last_name: $('#last_name').val(),
@@ -1063,7 +1331,7 @@ function render_custom_checkout() {
             
             // Update payment total
             const subtotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
-            const total = subtotal + calculatedShippingFee;
+            const total = subtotal - totalDiscount + calculatedShippingFee;
             $('#payment-total').text(total.toLocaleString('en-US', {minimumFractionDigits: 2}));
             
             // Copy order summary
@@ -1167,6 +1435,11 @@ function render_custom_checkout() {
             Object.keys(orderData).forEach(key => {
                 formData.append(key, orderData[key]);
             });
+
+            // Add coupon data
+            if (appliedCoupons.length > 0) {
+                formData.append('applied_coupons', JSON.stringify(appliedCoupons));
+            }
             
             $.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
@@ -1216,6 +1489,16 @@ function process_complete_checkout() {
     try {
         // Create order
         $order = wc_create_order();
+
+        // Apply coupons if any
+        if (!empty($_POST['applied_coupons'])) {
+            $coupons = json_decode(stripslashes($_POST['applied_coupons']), true);
+            
+            foreach ($coupons as $coupon_data) {
+                $coupon_code = sanitize_text_field($coupon_data['code']);
+                $order->apply_coupon($coupon_code);
+            }
+        }
         
         // Add products
         foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
@@ -1535,4 +1818,86 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
         </div>
         <?php
     }
+}
+
+// AJAX: Validate and Apply Coupon
+add_action('wp_ajax_validate_and_apply_coupon', 'validate_and_apply_coupon');
+add_action('wp_ajax_nopriv_validate_and_apply_coupon', 'validate_and_apply_coupon');
+function validate_and_apply_coupon() {
+    $coupon_code = strtoupper(sanitize_text_field($_POST['coupon_code']));
+    $cart_total = floatval($_POST['cart_total']);
+    
+    if (empty($coupon_code)) {
+        wp_send_json_error(array('message' => 'Please enter a coupon code'));
+    }
+    
+    // Get coupon object
+    $coupon = new WC_Coupon($coupon_code);
+    
+    if (!$coupon->is_valid()) {
+        wp_send_json_error(array('message' => 'Invalid coupon code'));
+    }
+    
+    // Check usage limit
+    if ($coupon->get_usage_limit() > 0 && $coupon->get_usage_count() >= $coupon->get_usage_limit()) {
+        wp_send_json_error(array('message' => 'This coupon has reached its usage limit'));
+    }
+    
+    // Check expiry date
+    $expiry_date = $coupon->get_date_expires();
+    if ($expiry_date && $expiry_date < time()) {
+        wp_send_json_error(array('message' => 'This coupon has expired'));
+    }
+    
+    // Check minimum amount
+    $minimum_amount = $coupon->get_minimum_amount();
+    if ($minimum_amount > 0 && $cart_total < $minimum_amount) {
+        wp_send_json_error(array(
+            'message' => 'Minimum order amount of ₱' . number_format($minimum_amount, 2) . ' required for this coupon'
+        ));
+    }
+    
+    // Check maximum amount
+    $maximum_amount = $coupon->get_maximum_amount();
+    if ($maximum_amount > 0 && $cart_total > $maximum_amount) {
+        wp_send_json_error(array(
+            'message' => 'Maximum order amount of ₱' . number_format($maximum_amount, 2) . ' exceeded for this coupon'
+        ));
+    }
+    
+    // Calculate discount
+    $discount_type = $coupon->get_discount_type();
+    $coupon_amount = $coupon->get_amount();
+    $discount_amount = 0;
+    
+    if ($discount_type === 'fixed_cart' || $discount_type === 'fixed_product') {
+        $discount_amount = min($coupon_amount, $cart_total);
+    } elseif ($discount_type === 'percent') {
+        $discount_amount = ($cart_total * $coupon_amount) / 100;
+        
+        // Check if there's a discount limit
+        $limit_usage_to_x_items = $coupon->get_limit_usage_to_x_items();
+        if ($limit_usage_to_x_items > 0) {
+            $discount_amount = min($discount_amount, $cart_total);
+        }
+    }
+    
+    // Apply maximum discount amount if set
+    if ($maximum_amount > 0 && $discount_amount > $maximum_amount) {
+        $discount_amount = $maximum_amount;
+    }
+    
+    $description = '';
+    if ($discount_type === 'percent') {
+        $description = $coupon_amount . '% off';
+    } else {
+        $description = '₱' . number_format($coupon_amount, 2) . ' off';
+    }
+    
+    wp_send_json_success(array(
+        'discount_amount' => $discount_amount,
+        'discount_type' => $discount_type,
+        'description' => $description,
+        'code' => $coupon_code
+    ));
 }
