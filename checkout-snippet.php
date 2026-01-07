@@ -1,5 +1,5 @@
 // ========================================
-// CUSTOM CHECKOUT PAGE WITH 2-STEP PROCESS
+// CUSTOM CHECKOUT PAGE WITH 2-STEP PROCESS (WITH ADD-ONS SUPPORT)
 // ========================================
 
 // 1. Detect custom checkout page và hiển thị nội dung
@@ -186,6 +186,26 @@ function render_custom_checkout() {
         .order-item-quantity {
             color: #666;
             font-size: 14px;
+        }
+        .order-item-meta {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .order-item-addons {
+            font-size: 13px;
+            color: #2d5016;
+            margin-top: 8px;
+            padding: 8px;
+            background: #f0f9ff;
+            border-radius: 4px;
+            border-left: 3px solid #2d5016;
+        }
+        .addon-item {
+            margin-bottom: 4px;
+        }
+        .addon-item:last-child {
+            margin-bottom: 0;
         }
         .order-item-price {
             font-weight: bold;
@@ -620,18 +640,42 @@ function render_custom_checkout() {
                                             <div class="order-item-info">
                                                 <div class="order-item-name"><?php echo wp_kses_post($_product->get_name()); ?></div>
                                                 <div class="order-item-quantity">Quantity: <?php echo $cart_item['quantity']; ?></div>
+                                                
                                                 <?php
+                                                // Display Variations
                                                 if (!empty($cart_item['variation'])) {
-                                                    echo '<div class="order-item-meta" style="font-size: 12px; color: #666;">';
+                                                    echo '<div class="order-item-meta">';
                                                     foreach ($cart_item['variation'] as $key => $value) {
                                                         echo esc_html(ucfirst(str_replace('attribute_', '', $key))) . ': ' . esc_html($value) . '<br>';
+                                                    }
+                                                    echo '</div>';
+                                                }
+                                                
+                                                // Display Add-ons (Custom Add-ons Plugin)
+                                                if (!empty($cart_item['custom_addons'])) {
+                                                    echo '<div class="order-item-addons">';
+                                                    echo '<strong>Add-on:</strong><br>';
+                                                    foreach ($cart_item['custom_addons'] as $addon) {
+                                                        $addon_label = isset($addon['optionLabel']) ? $addon['optionLabel'] : (isset($addon['label']) ? $addon['label'] : '');
+                                                        $addon_price = isset($addon['price']) ? $addon['price'] : 0;
+                                                        $addon_qty = isset($addon['qty']) ? $addon['qty'] : 1;
+                                                        
+                                                        echo '<div class="addon-item">';
+                                                        echo esc_html($addon_label);
+                                                        if ($addon_qty > 1) {
+                                                            echo ' × ' . esc_html($addon_qty);
+                                                        }
+                                                        if ($addon_price > 0) {
+                                                            echo ' — ₱' . number_format($addon_price, 2);
+                                                        }
+                                                        echo '</div>';
                                                     }
                                                     echo '</div>';
                                                 }
                                                 ?>
                                             </div>
                                             <div class="order-item-price">
-                                                ₱<?php echo number_format($cart_item['line_total'], 2); ?>
+                                                ₱<?php echo number_format($cart_item['line_total'] + $cart_item['line_tax'], 2); ?>
                                             </div>
                                         </div>
                                         <?php
@@ -1175,7 +1219,58 @@ function process_complete_checkout() {
         
         // Add products
         foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
-            $order->add_product($cart_item['data'], $cart_item['quantity']);
+            $product_id = $cart_item['data']->get_id();
+            $quantity = $cart_item['quantity'];
+            
+            // Add product to order
+            $item_id = $order->add_product($cart_item['data'], $quantity);
+            
+            // Get the order item object
+            $order_item = $order->get_item($item_id);
+            
+            // Calculate total addon price
+            $total_addon_price = 0;
+            
+            // Add add-ons meta to order item if exists
+            if (!empty($cart_item['custom_addons'])) {
+                foreach ($cart_item['custom_addons'] as $addon) {
+                    $addon_label = isset($addon['optionLabel']) ? $addon['optionLabel'] : (isset($addon['label']) ? $addon['label'] : '');
+                    $addon_group = isset($addon['group']) ? $addon['group'] : 'Add-on';
+                    $addon_price = isset($addon['price']) ? floatval($addon['price']) : 0;
+                    $addon_qty = isset($addon['qty']) ? intval($addon['qty']) : 1;
+                    
+                    // Store addon as order item meta
+                    if ($addon_label) {
+                        wc_add_order_item_meta($item_id, $addon_group, $addon_label);
+                        
+                        // If addon has price, add it
+                        if ($addon_price > 0) {
+                            wc_add_order_item_meta($item_id, '_addon_' . sanitize_title($addon_label) . '_price', $addon_price);
+                            
+                            // Add to total addon price
+                            $total_addon_price += ($addon_price * $addon_qty);
+                        }
+                        
+                        // Store quantity if more than 1
+                        if ($addon_qty > 1) {
+                            wc_add_order_item_meta($item_id, '_addon_' . sanitize_title($addon_label) . '_qty', $addon_qty);
+                        }
+                    }
+                }
+                
+                // Update line item total to include addon prices
+                if ($total_addon_price > 0 && $order_item) {
+                    $original_subtotal = $order_item->get_subtotal();
+                    $original_total = $order_item->get_total();
+                    
+                    // Add addon price to subtotal and total
+                    $order_item->set_subtotal($original_subtotal + $total_addon_price);
+                    $order_item->set_total($original_total + $total_addon_price);
+                    
+                    // Save the item
+                    $order_item->save();
+                }
+            }
         }
         
         // Set billing details

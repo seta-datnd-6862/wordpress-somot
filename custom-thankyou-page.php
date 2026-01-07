@@ -388,7 +388,7 @@ function render_custom_thank_you_page($order) {
         <!-- Contact Support -->
         <div style="text-align: center; margin-top: 40px; padding: 20px; background: #f9fafb; border-radius: 8px;">
             <p style="margin: 0; color: #6b7280; font-size: 14px;">
-                Need help? Contact us at <a href="mailto:support@somot.com" style="color: #10b981; font-weight: 600;">support@somot.com</a>
+                Need help? Contact us at <a href="mailto:customerservice@so-mot.com" style="color: #10b981; font-weight: 600;">customerservice@so-mot.com</a>
             </p>
         </div>
     </div>

@@ -31,6 +31,134 @@ function create_my_account_inline() {
     }
 }
 
+// ============================================
+// LOST PASSWORD PAGE
+// ============================================
+
+add_action('init', 'create_lost_password_page');
+function create_lost_password_page() {
+    $page_slug = 'lost-password';
+    $page_check = get_page_by_path($page_slug);
+    
+    if (!$page_check) {
+        wp_insert_post(array(
+            'post_title'    => 'Lost Password',
+            'post_name'     => $page_slug,
+            'post_status'   => 'publish',
+            'post_type'     => 'page',
+            'post_content'  => '[lost_password_form]',
+        ));
+    }
+}
+
+// Shortcode Lost Password Form
+add_shortcode('lost_password_form', 'lost_password_form_func');
+function lost_password_form_func() {
+    // Xử lý form submission
+    $message = '';
+    $error = '';
+    
+    if (isset($_POST['reset_password'])) {
+        if (!isset($_POST['reset_password_nonce']) || !wp_verify_nonce($_POST['reset_password_nonce'], 'reset_password')) {
+            $error = 'Invalid request.';
+        } else {
+            $email = sanitize_email($_POST['user_login']);
+            
+            if (empty($email)) {
+                $error = 'Please enter your email address.';
+            } elseif (!is_email($email)) {
+                $error = 'Please enter a valid email address.';
+            } elseif (!email_exists($email)) {
+                $error = 'There is no account with that email address.';
+            } else {
+                $user = get_user_by('email', $email);
+                
+                if ($user) {
+                    $reset_key = get_password_reset_key($user);
+                    
+                    if (!is_wp_error($reset_key)) {
+                        $reset_url = network_site_url("wp-login.php?action=rp&key=$reset_key&login=" . rawurlencode($user->user_login), 'login');
+                        
+                        $email_message = "Hi " . $user->display_name . ",\n\n";
+                        $email_message .= "You requested to reset your password for your account at " . get_bloginfo('name') . ".\n\n";
+                        $email_message .= "To reset your password, please click the link below:\n";
+                        $email_message .= $reset_url . "\n\n";
+                        $email_message .= "If you did not request this, please ignore this email.\n\n";
+                        $email_message .= "This link will expire in 24 hours.\n\n";
+                        $email_message .= "Thanks!";
+                        
+                        $sent = wp_mail(
+                            $email,
+                            'Password Reset Request - ' . get_bloginfo('name'),
+                            $email_message
+                        );
+                        
+                        if ($sent) {
+                            $message = 'Check your email for the confirmation link, then visit the <a href="' . home_url('/my-account') . '">login page</a>.';
+                        } else {
+                            $error = 'Failed to send email. Please try again.';
+                        }
+                    } else {
+                        $error = 'Failed to generate reset key. Please try again.';
+                    }
+                }
+            }
+        }
+    }
+    
+    ob_start();
+    ?>
+    <style>
+        <?php echo get_my_account_inline_styles(); ?>
+    </style>
+    
+    <!-- Header -->
+    <div class="mat-header">
+        <h1>RESET PASSWORD</h1>
+    </div>
+    
+    <div class="mat-wrapper mat-wrapper-auth">
+        <div class="mat-auth-container" style="max-width: 600px;">
+            <?php if (!empty($message)) : ?>
+                <div class="mat-success-message">
+                    <span class="mat-success-icon">✓</span>
+                    <?php echo $message; ?>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($error)) : ?>
+                <div class="mat-error-message">
+                    <span class="mat-error-icon">⚠️</span>
+                    <?php echo $error; ?>
+                </div>
+            <?php endif; ?>
+            
+            <div class="mat-form-column active" style="display: block; max-width: 600px; margin: 0 auto;">
+                <h2>Lost your password?</h2>
+                <p style="text-align: center; color: #666; margin-bottom: 25px;">
+                    Please enter your email address. You will receive a link to create a new password via email.
+                </p>
+                
+                <form method="post" action="" class="mat-form">
+                    <div class="mat-form-group">
+                        <label>Email address *</label>
+                        <input type="email" name="user_login" value="<?php echo isset($_POST['user_login']) ? esc_attr($_POST['user_login']) : ''; ?>" required>
+                    </div>
+                    
+                    <button type="submit" name="reset_password" class="mat-btn-submit">Reset password</button>
+                    <?php wp_nonce_field('reset_password', 'reset_password_nonce'); ?>
+                    
+                    <p class="mat-toggle-form" style="margin-top: 20px;">
+                        Remember your password? <a href="<?php echo home_url('/my-account'); ?>">Back to login</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
 // Shortcode My Account
 add_shortcode('my_account_inline', 'my_account_inline_func');
 function my_account_inline_func() {
@@ -66,19 +194,40 @@ function my_account_inline_func() {
             
             <nav class="mat-menu">
                 <a href="#address" class="mat-menu-item" data-tab="address">
-                    <span class="mat-icon">📍</span>
+                    <span class="mat-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </span>
                     <span>Address</span>
                 </a>
                 <a href="#account-details" class="mat-menu-item" data-tab="account-details">
-                    <span class="mat-icon">📋</span>
+                    <span class="mat-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                        </svg>
+                    </span>
                     <span>Account Details</span>
                 </a>
                 <a href="<?php echo wp_logout_url(home_url()); ?>" class="mat-menu-item">
-                    <span class="mat-icon">🔓</span>
+                    <span class="mat-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                    </span>
                     <span>Log Out</span>
                 </a>
                 <a href="<?php echo home_url(); ?>" class="mat-menu-item mat-home">
-                    <span class="mat-icon">🏠</span>
+                    <span class="mat-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                    </span>
                     <span>Home</span>
                 </a>
             </nav>
@@ -89,16 +238,44 @@ function my_account_inline_func() {
             <!-- Tabs -->
             <div class="mat-tabs">
                 <a href="#dashboard" class="mat-tab active" data-content="dashboard">
-                    <span class="mat-tab-icon">👤</span> Dashboard
+                    <span class="mat-tab-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </span> 
+                    Dashboard
                 </a>
                 <a href="#orders" class="mat-tab" data-content="orders">
-                    <span class="mat-tab-icon">🛒</span> Order
+                    <span class="mat-tab-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                    </span> 
+                    Order
                 </a>
                 <a href="#reservations" class="mat-tab" data-content="reservations">
-                    <span class="mat-tab-icon">📅</span> Reservations
+                    <span class="mat-tab-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                    </span> 
+                    Reservations
                 </a>
                 <a href="<?php echo wc_get_cart_url(); ?>" class="mat-tab mat-tab-link">
-                    <span class="mat-tab-icon">🛒</span> Cart
+                    <span class="mat-tab-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="9" cy="21" r="1"></circle>
+                            <circle cx="20" cy="21" r="1"></circle>
+                            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                        </svg>
+                    </span> 
+                    Cart
                 </a>
             </div>
             
@@ -137,11 +314,24 @@ function my_account_inline_func() {
 function my_account_login_register_forms() {
     // Xử lý registration
     $error_message = '';
+    $success_message = '';
     $show_register = false;
+    $show_lost_password = false;
     
     if (isset($_POST['register_user_inline'])) {
         $error_message = handle_user_registration_inline();
         $show_register = true;
+    }
+    
+    // Xử lý Lost Password
+    if (isset($_POST['reset_password_inline'])) {
+        $result = handle_lost_password_inline();
+        if ($result['success']) {
+            $success_message = $result['message'];
+        } else {
+            $error_message = $result['message'];
+        }
+        $show_lost_password = true;
     }
     
     ob_start();
@@ -158,6 +348,13 @@ function my_account_login_register_forms() {
     <div class="mat-wrapper mat-wrapper-auth">
         <!-- Forms Container -->
         <div class="mat-auth-container">
+            <?php if (!empty($success_message)) : ?>
+                <div class="mat-success-message">
+                    <span class="mat-success-icon">✓</span>
+                    <?php echo $success_message; ?>
+                </div>
+            <?php endif; ?>
+            
             <?php if (!empty($error_message)) : ?>
                 <div class="mat-error-message">
                     <span class="mat-error-icon">⚠️</span>
@@ -167,7 +364,7 @@ function my_account_login_register_forms() {
             
             <div class="mat-forms-wrapper">
                 <!-- Login Form -->
-                <div class="mat-form-column mat-login-column <?php echo !$show_register ? 'active' : ''; ?>">
+                <div class="mat-form-column mat-login-column <?php echo (!$show_register && !$show_lost_password) ? 'active' : ''; ?>">
                     <h2>Login</h2>
                     
                     <?php echo get_social_login_buttons(); ?>
@@ -191,7 +388,7 @@ function my_account_login_register_forms() {
                         <button type="submit" class="mat-btn-submit">Log in</button>
                         
                         <p class="mat-lost-pw">
-                            <a href="https://so-mot.com/my-account/lost-password/">Lost your password?</a>
+                            <a href="#" class="mat-toggle-link" data-target="lost-password">Lost your password?</a>
                         </p>
                         
                         <p class="mat-toggle-form">
@@ -236,6 +433,29 @@ function my_account_login_register_forms() {
                         
                         <p class="mat-toggle-form">
                             Already a member? <a href="#" class="mat-toggle-link" data-target="login">Login</a>
+                        </p>
+                    </form>
+                </div>
+                
+                <!-- Lost Password Form -->
+                <div class="mat-form-column mat-lost-password-column <?php echo $show_lost_password ? 'active' : ''; ?>">
+                    <h2>Reset Password</h2>
+                    
+                    <p class="mat-register-note" style="text-align: center;">
+                        Lost your password? Please enter your email address. You will receive a link to create a new password via email.
+                    </p>
+                    
+                    <form method="post" action="" class="mat-form mat-lost-password-form">
+                        <div class="mat-form-group">
+                            <label>Email address *</label>
+                            <input type="email" name="user_email" value="<?php echo isset($_POST['user_email']) ? esc_attr($_POST['user_email']) : ''; ?>" required>
+                        </div>
+                        
+                        <button type="submit" name="reset_password_inline" class="mat-btn-submit">Reset password</button>
+                        <?php wp_nonce_field('reset_password_inline', 'reset_password_inline_nonce'); ?>
+                        
+                        <p class="mat-toggle-form">
+                            Remember your password? <a href="#" class="mat-toggle-link" data-target="login">Back to login</a>
                         </p>
                     </form>
                 </div>
@@ -323,6 +543,64 @@ function handle_user_registration_inline() {
     exit;
 }
 
+// Xử lý Lost Password
+function handle_lost_password_inline() {
+    if (!isset($_POST['reset_password_inline_nonce']) || !wp_verify_nonce($_POST['reset_password_inline_nonce'], 'reset_password_inline')) {
+        return array('success' => false, 'message' => 'Invalid request.');
+    }
+    
+    $email = sanitize_email($_POST['user_email']);
+    
+    if (empty($email)) {
+        return array('success' => false, 'message' => 'Please enter your email address.');
+    }
+    
+    if (!is_email($email)) {
+        return array('success' => false, 'message' => 'Please enter a valid email address.');
+    }
+    
+    if (!email_exists($email)) {
+        return array('success' => false, 'message' => 'There is no account with that email address.');
+    }
+    
+    $user = get_user_by('email', $email);
+    
+    if (!$user) {
+        return array('success' => false, 'message' => 'User not found.');
+    }
+    
+    $reset_key = get_password_reset_key($user);
+    
+    if (is_wp_error($reset_key)) {
+        return array('success' => false, 'message' => 'Failed to generate reset key. Please try again.');
+    }
+    
+    $reset_url = network_site_url("wp-login.php?action=rp&key=$reset_key&login=" . rawurlencode($user->user_login), 'login');
+    
+    $email_message = "Hi " . $user->display_name . ",\n\n";
+    $email_message .= "You requested to reset your password for your account at " . get_bloginfo('name') . ".\n\n";
+    $email_message .= "To reset your password, please click the link below:\n";
+    $email_message .= $reset_url . "\n\n";
+    $email_message .= "If you did not request this, please ignore this email.\n\n";
+    $email_message .= "This link will expire in 24 hours.\n\n";
+    $email_message .= "Thanks!";
+    
+    $sent = wp_mail(
+        $email,
+        'Password Reset Request - ' . get_bloginfo('name'),
+        $email_message
+    );
+    
+    if ($sent) {
+        return array(
+            'success' => true, 
+            'message' => 'Check your email for the confirmation link. If you don\'t see it, please check your spam folder.'
+        );
+    } else {
+        return array('success' => false, 'message' => 'Failed to send email. Please try again or contact support.');
+    }
+}
+
 // ============================================
 // 3. STYLES
 // ============================================
@@ -381,14 +659,15 @@ function get_my_account_inline_styles() {
         
         .mat-form-column {
             flex: 1;
-            background: #f8f9fa;
             padding: 30px;
             border-radius: 12px;
             display: none;
+            transition: opacity 0.3s ease;
         }
         
         .mat-form-column.active {
             display: block;
+            opacity: 1;
         }
         
         .mat-form-column h2 {
@@ -408,6 +687,11 @@ function get_my_account_inline_styles() {
         .mat-user-info {
             text-align: center;
             margin-bottom: 30px;
+        }
+
+        .mat-avatar {
+            display: flex;
+            justify-content: center;
         }
         
         .mat-avatar img {
@@ -456,11 +740,21 @@ function get_my_account_inline_styles() {
         
         .mat-menu-item:hover {
             background: #3B7D3B;
-            color: #fff;
+            color: #fff !important;
         }
         
-        .mat-icon {
-            font-size: 18px;
+        .mat-icon svg {
+            display: block;
+            transition: all 0.3s ease;
+        }
+
+        .mat-menu-item:hover .mat-icon svg {
+            transform: scale(1.1);
+            stroke: #FFFFFF; /* Thay bằng màu chủ đạo của bạn */
+        }
+
+        .mat-menu-item.active .mat-icon svg {
+            stroke: #FFFFFF;
         }
         
         .mat-home {
@@ -507,7 +801,32 @@ function get_my_account_inline_styles() {
         }
         
         .mat-tab-icon {
-            font-size: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .mat-tab-icon svg {
+            display: block;
+            transition: all 0.3s ease;
+        }
+
+        /* Active tab */
+        .mat-tab.active .mat-tab-icon svg {
+            stroke: #3B7D3B; /* Màu khi active */
+        }
+
+        /* Hover effect */
+        .mat-tab:hover .mat-tab-icon svg {
+            transform: translateY(-2px);
+            stroke: #3B7D3B;
+        }
+
+        /* Optional: Thêm animation khi click */
+        .mat-tab:active .mat-tab-icon svg {
+            transform: scale(0.95);
         }
         
         /* Content */
@@ -909,6 +1228,20 @@ function get_my_account_inline_styles() {
         .mat-error-icon {
             margin-right: 8px;
         }
+
+        .mat-success-message {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            color: #2e7d32;
+        }
+
+        .mat-success-icon {
+            margin-right: 8px;
+            font-weight: bold;
+        }
         
         /* Responsive */
         @media (max-width: 992px) {
@@ -932,8 +1265,13 @@ function get_my_account_inline_styles() {
                 flex-direction: column;
             }
             
+            /* Mobile: Chỉ hiển thị form active */
             .mat-form-column {
-                display: block !important;
+                display: none;
+            }
+            
+            .mat-form-column.active {
+                display: block;
             }
             
             .mat-addresses {
@@ -1373,24 +1711,29 @@ function mat_scripts_inline() {
         });
         
         // Toggle between Login and Register forms
+        // Toggle between Login, Register and Lost Password forms
         $('.mat-toggle-link').on('click', function(e) {
             e.preventDefault();
             
             var target = $(this).data('target');
             
+            // Ẩn tất cả forms
+            $('.mat-form-column').removeClass('active');
+            
+            // Hiển thị form được chọn
             if (target === 'register') {
-                $('.mat-login-column').removeClass('active');
                 $('.mat-register-column').addClass('active');
+            } else if (target === 'lost-password') {
+                $('.mat-lost-password-column').addClass('active');
             } else {
-                $('.mat-register-column').removeClass('active');
                 $('.mat-login-column').addClass('active');
             }
             
-            // Scroll to top on mobile
-            if ($(window).width() < 993) {
+            // Scroll to top trên mobile
+            if ($(window).width() <= 992) {
                 $('html, body').animate({
-                    scrollTop: $('.mat-auth-container').offset().top - 20
-                }, 300);
+                    scrollTop: $('.mat-header').offset().top
+                }, 400);
             }
         });
     });
