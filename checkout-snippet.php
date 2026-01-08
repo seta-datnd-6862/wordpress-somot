@@ -516,6 +516,204 @@ function render_custom_checkout() {
             color: #d32f2f;
         }
 
+        /* Available Coupons Section */
+        .available-coupons {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .available-coupons-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #666;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .available-coupons-title:hover {
+            color: #2d5016;
+        }
+
+        .coupon-toggle-icon {
+            transition: transform 0.3s;
+        }
+
+        .coupon-toggle-icon.open {
+            transform: rotate(180deg);
+        }
+
+        .available-coupons-list {
+            display: grid;
+            gap: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .available-coupons-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .available-coupons-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+
+        .available-coupons-list::-webkit-scrollbar-thumb {
+            background: #2d5016;
+            border-radius: 3px;
+        }
+
+        .coupon-card {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #0284c7;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .coupon-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: #0284c7;
+        }
+
+        .coupon-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+            border-color: #0369a1;
+        }
+
+        .coupon-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: #f5f5f5;
+            border-color: #ddd;
+        }
+
+        .coupon-card.disabled::before {
+            background: #999;
+        }
+
+        .coupon-card.disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .coupon-card.applied {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border-color: #4caf50;
+        }
+
+        .coupon-card.applied::before {
+            background: #4caf50;
+        }
+
+        .coupon-info {
+            flex: 1;
+            padding-left: 8px;
+        }
+
+        .coupon-code-display {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0369a1;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+
+        .coupon-card.applied .coupon-code-display {
+            color: #2e7d32;
+        }
+
+        .coupon-description {
+            font-size: 13px;
+            color: #1e293b;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .coupon-details {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .coupon-discount {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0369a1;
+            white-space: nowrap;
+            margin-right: 12px;
+        }
+
+        .coupon-card.applied .coupon-discount {
+            color: #2e7d32;
+        }
+
+        .coupon-apply-small-btn {
+            padding: 8px 16px;
+            background: #0284c7;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .coupon-apply-small-btn:hover {
+            background: #0369a1;
+            transform: scale(1.05);
+        }
+
+        .coupon-apply-small-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .coupon-card.applied .coupon-apply-small-btn {
+            background: #4caf50;
+        }
+
+        .no-coupons-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .coupon-conditions {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #ef4444;
+        }
+
+        .loading-coupons {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
         .discount-row {
             color: #10b981;
         }
@@ -759,6 +957,16 @@ function render_custom_checkout() {
                                 </div>
                                 <div id="coupon-message" class="coupon-message hidden"></div>
                                 <div id="applied-coupons" class="applied-coupons hidden"></div>
+                                
+                                <!-- Available Coupons List -->
+                                <div class="available-coupons">
+                                    <div class="available-coupons-title">
+                                        <span>🎟️ Available Coupons</span>
+                                    </div>
+                                    <div id="available-coupons-list" class="available-coupons-list hidden">
+                                        <div class="loading-coupons">Loading coupons...</div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div id="order-items">
@@ -938,6 +1146,33 @@ function render_custom_checkout() {
         let appliedCoupons = [];
         let totalDiscount = 0;
 
+        let availableCouponsData = [];
+
+        loadAvailableCoupons();
+
+        // Load available coupons
+        function loadAvailableCoupons() {
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'get_available_coupons',
+                    cart_total: parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''))
+                },
+                success: function(response) {
+                    if (response.success && response.data.coupons) {
+                        availableCouponsData = response.data.coupons;
+                        renderAvailableCoupons();
+                    } else {
+                        $('#available-coupons-list').html('<div class="no-coupons-message">No coupons available at the moment</div>');
+                    }
+                },
+                error: function() {
+                    $('#available-coupons-list').html('<div class="no-coupons-message">Error loading coupons</div>');
+                }
+            });
+        }
+
         // Apply Coupon
         $('#apply-coupon-btn').click(function() {
             const couponCode = $('#coupon-code-input').val().trim().toUpperCase();
@@ -1011,12 +1246,83 @@ function render_custom_checkout() {
             }, 5000);
         }
 
-        // Update applied coupons UI
+        // Render available coupons
+        function renderAvailableCoupons() {
+            const $list = $('#available-coupons-list');
+            
+            if (availableCouponsData.length === 0) {
+                $list.html('<div class="no-coupons-message">No coupons available at the moment</div>');
+                return;
+            }
+            
+            const cartTotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
+            let html = '';
+            
+            availableCouponsData.forEach(function(coupon) {
+                const isApplied = appliedCoupons.some(c => c.code === coupon.code);
+                const isDisabled = coupon.minimum_amount > cartTotal;
+                
+                let cardClass = 'coupon-card';
+                if (isApplied) cardClass += ' applied';
+                if (isDisabled) cardClass += ' disabled';
+                
+                let buttonText = 'Apply';
+                if (isApplied) buttonText = 'Applied ✓';
+                
+                let conditionsHtml = '';
+                if (isDisabled) {
+                    conditionsHtml = '<div class="coupon-conditions">Minimum order: ₱' + coupon.minimum_amount.toFixed(2) + '</div>';
+                }
+                
+                html += '<div class="' + cardClass + '" onclick="applyCouponFromList(\'' + coupon.code + '\')">' +
+                    '<div class="coupon-info">' +
+                        '<div class="coupon-code-display">' + coupon.code + '</div>' +
+                        '<div class="coupon-description">' + coupon.description + '</div>' +
+                        '<div class="coupon-details">' + coupon.details + '</div>' +
+                        conditionsHtml +
+                    '</div>' +
+                    '<div class="coupon-discount">' + coupon.discount_text + '</div>' +
+                    '<button type="button" class="coupon-apply-small-btn" ' + 
+                        (isDisabled || isApplied ? 'disabled' : '') + 
+                        ' onclick="event.stopPropagation(); applyCouponFromList(\'' + coupon.code + '\')">' +
+                        buttonText +
+                    '</button>' +
+                '</div>';
+            });
+            
+            $list.html(html);
+        }
+
+        // Apply coupon from list
+        window.applyCouponFromList = function(code) {
+            // Check if already applied
+            if (appliedCoupons.some(c => c.code === code)) {
+                showCouponMessage('This coupon is already applied', 'error');
+                return;
+            }
+            
+            // Check if disabled
+            const cartTotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
+            const couponData = availableCouponsData.find(c => c.code === code);
+            
+            if (couponData && couponData.minimum_amount > cartTotal) {
+                showCouponMessage('Minimum order amount of ₱' + couponData.minimum_amount.toFixed(2) + ' required', 'error');
+                return;
+            }
+            
+            // Set coupon code and apply
+            $('#coupon-code-input').val(code);
+            $('#apply-coupon-btn').click();
+        };
+
+        // Update renderAvailableCoupons when coupons change
+        // Thêm vào function updateAppliedCouponsUI
         function updateAppliedCouponsUI() {
             const $container = $('#applied-coupons');
             
             if (appliedCoupons.length === 0) {
                 $container.addClass('hidden');
+                renderAvailableCoupons(); // Update available coupons list
                 return;
             }
             
@@ -1031,9 +1337,10 @@ function render_custom_checkout() {
             });
             
             $container.html(html).removeClass('hidden');
+            renderAvailableCoupons(); // Update available coupons list
         }
 
-        // Remove coupon
+        // Update removeCoupon function
         window.removeCoupon = function(code) {
             appliedCoupons = appliedCoupons.filter(c => c.code !== code);
             updateAppliedCouponsUI();
@@ -1899,5 +2206,112 @@ function validate_and_apply_coupon() {
         'discount_type' => $discount_type,
         'description' => $description,
         'code' => $coupon_code
+    ));
+}
+
+// AJAX: Get Available Coupons
+add_action('wp_ajax_get_available_coupons', 'get_available_coupons_ajax');
+add_action('wp_ajax_nopriv_get_available_coupons', 'get_available_coupons_ajax');
+function get_available_coupons_ajax() {
+    $cart_total = isset($_POST['cart_total']) ? floatval($_POST['cart_total']) : 0;
+    
+    $args = array(
+        'posts_per_page' => -1,
+        'post_type' => 'shop_coupon',
+        'post_status' => 'publish',
+        'orderby' => 'date',
+        'order' => 'DESC'
+    );
+    
+    $coupons_query = new WP_Query($args);
+    $available_coupons = array();
+    
+    if ($coupons_query->have_posts()) {
+        while ($coupons_query->have_posts()) {
+            $coupons_query->the_post();
+            $coupon_id = get_the_ID();
+            $coupon = new WC_Coupon($coupon_id);
+            
+            // Check if coupon is valid
+            if (!$coupon->is_valid()) {
+                continue;
+            }
+            
+            // Check usage limit
+            if ($coupon->get_usage_limit() > 0 && $coupon->get_usage_count() >= $coupon->get_usage_limit()) {
+                continue;
+            }
+            
+            // Check expiry date
+            $expiry_date = $coupon->get_date_expires();
+            if ($expiry_date && $expiry_date->getTimestamp() < time()) {
+                continue;
+            }
+            
+            // Get coupon details
+            $code = $coupon->get_code();
+            $discount_type = $coupon->get_discount_type();
+            $amount = $coupon->get_amount();
+            $minimum_amount = $coupon->get_minimum_amount();
+            $maximum_amount = $coupon->get_maximum_amount();
+            $description = $coupon->get_description();
+            
+            // Format discount text
+            $discount_text = '';
+            if ($discount_type === 'percent') {
+                $discount_text = $amount . '% OFF';
+            } else if ($discount_type === 'fixed_cart' || $discount_type === 'fixed_product') {
+                $discount_text = '₱' . number_format($amount, 0) . ' OFF';
+            }
+            
+            // Build details text
+            $details_parts = array();
+            
+            if ($minimum_amount > 0) {
+                $details_parts[] = 'Min: ₱' . number_format($minimum_amount, 0);
+            }
+            
+            if ($maximum_amount > 0) {
+                $details_parts[] = 'Max discount: ₱' . number_format($maximum_amount, 0);
+            }
+            
+            if ($expiry_date) {
+                $details_parts[] = 'Expires: ' . $expiry_date->format('M d, Y');
+            }
+            
+            $usage_limit = $coupon->get_usage_limit();
+            if ($usage_limit > 0) {
+                $remaining = $usage_limit - $coupon->get_usage_count();
+                $details_parts[] = $remaining . ' uses left';
+            }
+            
+            $details = !empty($details_parts) ? implode(' • ', $details_parts) : 'No restrictions';
+            
+            // Use description or create a default one
+            if (empty($description)) {
+                if ($discount_type === 'percent') {
+                    $description = 'Get ' . $amount . '% discount on your order';
+                } else {
+                    $description = 'Get ₱' . number_format($amount, 2) . ' off your order';
+                }
+            }
+            
+            $available_coupons[] = array(
+                'code' => $code,
+                'discount_type' => $discount_type,
+                'amount' => $amount,
+                'discount_text' => $discount_text,
+                'description' => $description,
+                'details' => $details,
+                'minimum_amount' => $minimum_amount,
+                'maximum_amount' => $maximum_amount,
+                'expiry_date' => $expiry_date ? $expiry_date->format('Y-m-d') : null
+            );
+        }
+        wp_reset_postdata();
+    }
+    
+    wp_send_json_success(array(
+        'coupons' => $available_coupons
     ));
 }
