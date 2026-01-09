@@ -25,9 +25,33 @@ function render_custom_checkout() {
     
     // Lấy thông tin chi nhánh từ settings
     $branches = array(
-        array('id' => 'tayuman', 'name' => 'Tayuman Branch, Manila', 'lat' => 14.6175959, 'lng' => 120.9837713, 'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines'),
-        array('id' => 'pioneer', 'name' => 'Pioneer Branch, Pasig', 'lat' => 14.5731404, 'lng' => 121.0164509, 'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines'),
-        array('id' => 'unimart', 'name' => 'Unimart Branch, Capitol Commons, Pasig', 'lat' => 14.574848, 'lng' => 121.0618259, 'address' => 'Ground Floor, Unimart at Capitol Commons, Shaw Blvd, Pasig, Metro Manila, Philippines'),
+        array(
+            'id' => 'tayuman', 
+            'name' => 'Tayuman Branch, Manila', 
+            'lat' => 14.6175959, 
+            'lng' => 120.9837713, 
+            'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines',
+            'start_time' => '08:30',
+            'end_time' => '22:00'
+        ),
+        array(
+            'id' => 'pioneer', 
+            'name' => 'Pioneer Branch, Pasig', 
+            'lat' => 14.5731404, 
+            'lng' => 121.0164509, 
+            'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines',
+            'start_time' => '07:00',
+            'end_time' => '23:00'
+        ),
+        array(
+            'id' => 'ayala', 
+            'name' => 'Ayala Cloverleaf, So Mot Vietnamese Restaurant 4th Floor', 
+            'lat' => 14.6550542, 
+            'lng' => 120.9630123, 
+            'address' => 'A. Bonifacio Ave, La Loma, Quezon City, 1115 Metro Manila, Philippines',
+            'start_time' => '10:00',
+            'end_time' => '22:00'
+        ),
     );
     
     ?>
@@ -761,28 +785,6 @@ function render_custom_checkout() {
                                     </label>
                                 </div>
                             </div>
-
-                            <!-- Delivery Date & Time -->
-                            <div class="form-group">
-                                <label id="delivery-date-label">Pick up date <span class="required">*</span></label>
-                                <input type="date" name="delivery_date" id="delivery_date" required min="<?php echo date('Y-m-d'); ?>">
-                            </div>
-
-                            <div class="form-group">
-                                <label id="delivery-time-label" for="delivery_time">Pick up time <span class="required">*</span></label>
-                                <select name="delivery_time" id="delivery_time_select" class="test" required>
-                                    <!-- select time each 15 mins from 07:00 to 23:00 -->
-                                    <?php
-                                    for ($hour = 7; $hour < 23; $hour++) {
-                                        for ($min = 0; $min < 60; $min += 15) {
-                                            $time = sprintf('%02d:%02d', $hour, $min);
-                                            echo '<option value="' . $time . '">' . $time . '</option>';
-                                        }
-                                    }
-                                    ?>
-                                    <option value="23:00">23:00</option>
-                                </select>
-                            </div>
                         </div>
 
                         <!-- Contact Information -->
@@ -845,12 +847,36 @@ function render_custom_checkout() {
                                             <option value="<?php echo $branch['id']; ?>" 
                                                     data-lat="<?php echo $branch['lat']; ?>" 
                                                     data-lng="<?php echo $branch['lng']; ?>"
-                                                    data-address="<?php echo esc_attr($branch['address']); ?>">
+                                                    data-address="<?php echo esc_attr($branch['address']); ?>"
+                                                    data-start-time="<?php echo $branch['start_time']; ?>"
+                                                    data-end-time="<?php echo $branch['end_time']; ?>">
                                                 <?php echo esc_html($branch['name']); ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
+                            </div>
+
+                            <!-- Delivery Date & Time -->
+                            <div class="form-group">
+                                <label id="delivery-date-label">Pick up date <span class="required">*</span></label>
+                                <input type="date" name="delivery_date" id="delivery_date" required min="<?php echo date('Y-m-d'); ?>">
+                            </div>
+
+                            <div class="form-group">
+                                <label id="delivery-time-label" for="delivery_time">Pick up time <span class="required">*</span></label>
+                                <select name="delivery_time" id="delivery_time_select" class="test" required>
+                                    <!-- select time each 15 mins from 07:00 to 23:00 -->
+                                    <?php
+                                    for ($hour = 7; $hour < 23; $hour++) {
+                                        for ($min = 0; $min < 60; $min += 15) {
+                                            $time = sprintf('%02d:%02d', $hour, $min);
+                                            echo '<option value="' . $time . '">' . $time . '</option>';
+                                        }
+                                    }
+                                    ?>
+                                    <option value="23:00">23:00</option>
+                                </select>
                             </div>
 
                             <!-- Distance Info -->
@@ -1394,6 +1420,58 @@ function render_custom_checkout() {
         }
         
         const branches = <?php echo json_encode($branches); ?>;
+
+        // Function to generate time options based on branch hours
+        function updateTimeOptions(startTime, endTime) {
+            const $timeSelect = $('#delivery_time_select');
+            const currentValue = $timeSelect.val(); // Save current selection
+            
+            if (!startTime || !endTime) {
+                // Default: 7:00 - 23:00
+                startTime = '07:00';
+                endTime = '23:00';
+            }
+            
+            // Parse start and end times
+            const [startHour, startMin] = startTime.split(':').map(Number);
+            const [endHour, endMin] = endTime.split(':').map(Number);
+            
+            // Clear current options
+            $timeSelect.empty();
+            
+            // Generate time options
+            let currentHour = startHour;
+            let currentMin = startMin;
+            
+            while (currentHour < endHour || (currentHour === endHour && currentMin <= endMin)) {
+                const time = sprintf('%02d:%02d', currentHour, currentMin);
+                $timeSelect.append('<option value="' + time + '">' + time + '</option>');
+                
+                // Increment by 15 minutes
+                currentMin += 15;
+                if (currentMin >= 60) {
+                    currentMin = 0;
+                    currentHour++;
+                }
+            }
+            
+            // Restore previous selection if still valid
+            if (currentValue && $timeSelect.find('option[value="' + currentValue + '"]').length > 0) {
+                $timeSelect.val(currentValue);
+            } else {
+                // Select first option as default
+                $timeSelect.val($timeSelect.find('option:first').val());
+            }
+        }
+
+        // Helper function for sprintf
+        function sprintf(format, ...args) {
+            let i = 0;
+            return format.replace(/%(\d*)d/g, (match, width) => {
+                const num = args[i++];
+                return width ? String(num).padStart(parseInt(width), '0') : String(num);
+            });
+        }
         
         // Initialize Google Maps Autocomplete
         function initAutocomplete() {
@@ -1578,6 +1656,11 @@ function render_custom_checkout() {
             const selectedOption = $(this).find('option:selected');
             branchLocation.lat = parseFloat(selectedOption.data('lat'));
             branchLocation.lng = parseFloat(selectedOption.data('lng'));
+            
+            // Update time options based on branch hours
+            const startTime = selectedOption.data('start-time');
+            const endTime = selectedOption.data('end-time');
+            updateTimeOptions(startTime, endTime);
             
             if ($('#address_lat').val() && $('#address_lng').val()) {
                 calculateDistance(
@@ -1800,6 +1883,18 @@ function render_custom_checkout() {
             initAutocomplete();
         } else {
             setTimeout(initAutocomplete, 1000);
+        }
+
+        // Initialize time options with default (first branch or no selection)
+        const firstBranch = $('#branch-select option:selected');
+        if (firstBranch.val()) {
+            updateTimeOptions(
+                firstBranch.data('start-time'),
+                firstBranch.data('end-time')
+            );
+        } else {
+            // Default time range if no branch selected
+            updateTimeOptions('07:00', '23:00');
         }
     });
     </script>

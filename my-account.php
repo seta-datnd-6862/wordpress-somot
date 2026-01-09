@@ -598,6 +598,244 @@ function handle_lost_password_inline() {
 
 function get_my_account_inline_styles() {
     return '
+        /* Modal Styles */
+        .mat-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+        }
+
+        .mat-modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            animation: fadeIn 0.3s;
+        }
+
+        .mat-modal-content {
+            position: relative;
+            background: #fff;
+            max-width: 900px;
+            margin: 50px auto;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.3s;
+            max-height: calc(100vh - 100px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .mat-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 25px 30px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .mat-modal-header h2 {
+            margin: 0;
+            color: #3B7D3B;
+            font-size: 24px;
+        }
+
+        .mat-modal-close {
+            background: none;
+            border: none;
+            font-size: 32px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .mat-modal-close:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .mat-modal-body {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .mat-loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 18px;
+        }
+
+        /* Order Details Styles */
+        .mat-order-detail {
+            margin-bottom: 30px;
+        }
+
+        .mat-order-detail-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .mat-order-detail-header h3 {
+            margin: 0 0 15px 0;
+            color: #3B7D3B;
+            font-size: 20px;
+        }
+
+        .mat-order-meta {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .mat-order-meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mat-order-meta-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .mat-order-meta-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .mat-order-items {
+            margin-bottom: 25px;
+        }
+
+        .mat-order-items h4 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .mat-order-item-detail {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .mat-order-item-image {
+            width: 80px;
+            height: 80px;
+            border-radius: 8px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .mat-order-item-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .mat-order-item-info-detail {
+            flex: 1;
+        }
+
+        .mat-order-item-name-detail {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .mat-order-item-meta-detail {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .mat-order-item-price-detail {
+            font-weight: bold;
+            color: #3B7D3B;
+            font-size: 16px;
+        }
+
+        .mat-order-summary-detail {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .mat-order-summary-detail h4 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .mat-summary-row-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 15px;
+        }
+
+        .mat-summary-row-detail.total {
+            border-top: 2px solid #ddd;
+            padding-top: 15px;
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #3B7D3B;
+        }
+
+        /* Responsive Modal */
+        @media (max-width: 992px) {
+            .mat-modal-content {
+                margin: 20px;
+                max-height: calc(100vh - 40px);
+            }
+            
+            .mat-order-meta {
+                grid-template-columns: 1fr;
+            }
+            
+            .mat-order-item-detail {
+                flex-direction: column;
+            }
+            
+            .mat-order-item-image {
+                width: 100%;
+                height: 150px;
+            }
+        }
         * { box-sizing: border-box; }
         
         /* Ẩn page title */
@@ -1359,7 +1597,7 @@ function get_orders_inline() {
                     ?>
                     <a href="<?php echo esc_url($tracking_url); ?>" class="mat-btn mat-btn-tracking" target="_blank">Tracking</a>
                     
-                    <a href="<?php echo $order->get_view_order_url(); ?>" class="mat-btn mat-btn-view">View</a>
+                    <button type="button" class="mat-btn mat-btn-view mat-view-order" data-order-id="<?php echo $order->get_id(); ?>">View</button>
                     <?php if (in_array($order->get_status(), array('pending', 'on-hold'))) : ?>
                         <a href="<?php echo $order->get_cancel_order_url(); ?>" class="mat-btn mat-btn-cancel">Cancel</a>
                     <?php endif; ?>
@@ -1368,6 +1606,21 @@ function get_orders_inline() {
         <?php endforeach; else : ?>
             <p>No orders found.</p>
         <?php endif; ?>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="mat-order-modal" class="mat-modal" style="display: none;">
+        <div class="mat-modal-overlay"></div>
+        <div class="mat-modal-content">
+            <div class="mat-modal-header">
+                <h2>Order Details</h2>
+                <button type="button" class="mat-modal-close">&times;</button>
+            </div>
+            <div class="mat-modal-body">
+                <div class="mat-loading">Loading...</div>
+                <div id="mat-order-details-content"></div>
+            </div>
+        </div>
     </div>
     <?php
     return ob_get_clean();
@@ -1698,7 +1951,6 @@ function mat_scripts_inline() {
             $('.mat-menu-item[data-tab="account-details"]').click();
         });
         
-        // Toggle between Login and Register forms
         // Toggle between Login, Register and Lost Password forms
         $('.mat-toggle-link').on('click', function(e) {
             e.preventDefault();
@@ -1724,7 +1976,208 @@ function mat_scripts_inline() {
                 }, 400);
             }
         });
+        
+        // ============================================
+        // VIEW ORDER MODAL
+        // ============================================
+        
+        // Open modal when clicking View button
+        $(document).on('click', '.mat-view-order', function(e) {
+            e.preventDefault();
+            
+            var orderId = $(this).data('order-id');
+            var $modal = $('#mat-order-modal');
+            
+            // Show modal
+            $modal.fadeIn(300);
+            $('body').css('overflow', 'hidden');
+            
+            // Show loading
+            $('.mat-loading').show();
+            $('#mat-order-details-content').hide();
+            
+            // Load order details via AJAX
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'get_order_details',
+                    order_id: orderId
+                },
+                success: function(response) {
+                    $('.mat-loading').hide();
+                    if (response.success) {
+                        $('#mat-order-details-content').html(response.data.html).fadeIn(300);
+                    } else {
+                        $('#mat-order-details-content').html('<p style="color: red; text-align: center;">Error loading order details.</p>').fadeIn(300);
+                    }
+                },
+                error: function() {
+                    $('.mat-loading').hide();
+                    $('#mat-order-details-content').html('<p style="color: red; text-align: center;">Error loading order details.</p>').fadeIn(300);
+                }
+            });
+        });
+        
+        // Close modal
+        $(document).on('click', '.mat-modal-close, .mat-modal-overlay', function() {
+            $('#mat-order-modal').fadeOut(300);
+            $('body').css('overflow', '');
+        });
+        
+        // Close modal on ESC key
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape' && $('#mat-order-modal').is(':visible')) {
+                $('#mat-order-modal').fadeOut(300);
+                $('body').css('overflow', '');
+            }
+        });
     });
     </script>
     <?php
+}
+
+// AJAX handler để load order details
+add_action('wp_ajax_get_order_details', 'get_order_details_ajax');
+function get_order_details_ajax() {
+    if (!is_user_logged_in()) {
+        wp_send_json_error('Not logged in');
+    }
+    
+    $order_id = intval($_POST['order_id']);
+    $order = wc_get_order($order_id);
+    
+    // Check if order belongs to current user
+    if (!$order || $order->get_customer_id() !== get_current_user_id()) {
+        wp_send_json_error('Invalid order');
+    }
+    
+    ob_start();
+    ?>
+    <div class="mat-order-detail">
+        <!-- Order Header -->
+        <div class="mat-order-detail-header">
+            <h3>Order #<?php echo $order->get_order_number(); ?></h3>
+            <div class="mat-order-meta">
+                <div class="mat-order-meta-item">
+                    <span class="mat-order-meta-label">Date</span>
+                    <span class="mat-order-meta-value"><?php echo $order->get_date_created()->format('F j, Y'); ?></span>
+                </div>
+                <div class="mat-order-meta-item">
+                    <span class="mat-order-meta-label">Status</span>
+                    <span class="mat-order-meta-value"><?php echo wc_get_order_status_name($order->get_status()); ?></span>
+                </div>
+                <div class="mat-order-meta-item">
+                    <span class="mat-order-meta-label">Payment Method</span>
+                    <span class="mat-order-meta-value"><?php echo $order->get_payment_method_title(); ?></span>
+                </div>
+                <div class="mat-order-meta-item">
+                    <span class="mat-order-meta-label">Total</span>
+                    <span class="mat-order-meta-value"><?php echo $order->get_formatted_order_total(); ?></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Order Items -->
+        <div class="mat-order-items">
+            <h4>Order Items</h4>
+            <?php foreach ($order->get_items() as $item_id => $item) : 
+                $product = $item->get_product();
+                if (!$product) continue;
+            ?>
+                <div class="mat-order-item-detail">
+                    <?php if ($product->get_image_id()) : ?>
+                        <div class="mat-order-item-image">
+                            <?php echo $product->get_image('thumbnail'); ?>
+                        </div>
+                    <?php endif; ?>
+                    <div class="mat-order-item-info-detail">
+                        <div class="mat-order-item-name-detail"><?php echo $item->get_name(); ?></div>
+                        <div class="mat-order-item-meta-detail">
+                            Quantity: <?php echo $item->get_quantity(); ?>
+                            <?php
+                            // Display variations
+                            if ($product->is_type('variation')) {
+                                $variation_data = $product->get_variation_attributes();
+                                if (!empty($variation_data)) {
+                                    echo '<br>';
+                                    foreach ($variation_data as $key => $value) {
+                                        echo '<span>' . ucfirst(str_replace('attribute_', '', $key)) . ': ' . $value . '</span><br>';
+                                    }
+                                }
+                            }
+                            
+                            // Display add-ons if any
+                            $item_meta = $item->get_meta_data();
+                            if (!empty($item_meta)) {
+                                foreach ($item_meta as $meta) {
+                                    if (strpos($meta->key, '_') !== 0) { // Skip hidden meta
+                                        echo '<br><span>' . $meta->key . ': ' . $meta->value . '</span>';
+                                    }
+                                }
+                            }
+                            ?>
+                        </div>
+                    </div>
+                    <div class="mat-order-item-price-detail">
+                        <?php echo $order->get_formatted_line_subtotal($item); ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        
+        <!-- Order Summary -->
+        <div class="mat-order-summary-detail">
+            <h4>Order Summary</h4>
+            <div class="mat-summary-row-detail">
+                <span>Subtotal</span>
+                <span><?php echo wc_price($order->get_subtotal()); ?></span>
+            </div>
+            <?php if ($order->get_shipping_total() > 0) : ?>
+                <div class="mat-summary-row-detail">
+                    <span>Shipping</span>
+                    <span><?php echo wc_price($order->get_shipping_total()); ?></span>
+                </div>
+            <?php endif; ?>
+            <?php if ($order->get_total_tax() > 0) : ?>
+                <div class="mat-summary-row-detail">
+                    <span>Tax</span>
+                    <span><?php echo wc_price($order->get_total_tax()); ?></span>
+                </div>
+            <?php endif; ?>
+            <?php if ($order->get_discount_total() > 0) : ?>
+                <div class="mat-summary-row-detail" style="color: #10b981;">
+                    <span>Discount</span>
+                    <span>-<?php echo wc_price($order->get_discount_total()); ?></span>
+                </div>
+            <?php endif; ?>
+            <div class="mat-summary-row-detail total">
+                <span>Total</span>
+                <span><?php echo $order->get_formatted_order_total(); ?></span>
+            </div>
+        </div>
+        
+        <!-- Billing & Shipping Address -->
+        <?php if ($order->get_billing_address_1()) : ?>
+            <div class="mat-order-items" style="margin-top: 25px;">
+                <h4>Billing Address</h4>
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <?php echo $order->get_formatted_billing_address(); ?>
+                </div>
+            </div>
+        <?php endif; ?>
+        
+        <?php if ($order->get_shipping_address_1()) : ?>
+            <div class="mat-order-items" style="margin-top: 25px;">
+                <h4>Shipping Address</h4>
+                <div style="padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                    <?php echo $order->get_formatted_shipping_address(); ?>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+    <?php
+    
+    $html = ob_get_clean();
+    wp_send_json_success(array('html' => $html));
 }

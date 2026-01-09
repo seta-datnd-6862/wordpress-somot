@@ -259,7 +259,7 @@ function somot_reservation_form_shortcode($atts) {
                         <div class="form-group">
                             <label>Until?</label>
                             <select id="reservation_end_time" name="reservation_end_time">
-                                <option value="">Start time here</option>
+                                <option value="">End time here</option>
                                 <option value="10:00">10:00 AM</option>
                                 <option value="10:30">10:30 AM</option>
                                 <option value="11:00">11:00 AM</option>
@@ -467,7 +467,7 @@ function somot_reservation_inline_css() {
             min-height: 450px;
             background-image: url('https://so-mot.com/wp-content/uploads/2025/10/so-mot-restaurant-web.jpg.webp');
             background-position: center center;
-            background-size: 115% auto;
+            background-size: cover;
             background-repeat: no-repeat;
             position: relative;
             display: flex;
@@ -1159,14 +1159,14 @@ function somot_reservation_inline_js() {
                     return [date >= new Date().setHours(0,0,0,0)];
                 },
                 onSelect: function(dateText) {
-                    loadTimeSlots();
+                    // loadTimeSlots();
                 }
             });
 
             // Load time slots when date or branch changes
             $('#branch_id').on('change', function() {
                 if ($('#reservation_date').val()) {
-                    loadTimeSlots();
+                    // loadTimeSlots();
                 }
             });
 
