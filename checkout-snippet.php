@@ -570,8 +570,8 @@ function render_custom_checkout() {
         }
 
         .coupon-card {
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            border: 2px solid #0284c7;
+            background: linear-gradient(135deg, #f0f9ff 0%, #61c3a2 100%);
+            border: 2px solid #3B7D3B;
             border-radius: 8px;
             padding: 12px;
             display: flex;
@@ -590,13 +590,13 @@ function render_custom_checkout() {
             left: 0;
             width: 4px;
             height: 100%;
-            background: #0284c7;
+            background: #3B7D3B;
         }
 
         .coupon-card:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
-            border-color: #0369a1;
+            box-shadow: 0 4px 12px rgba(59, 125, 59, 0.2);
+            border-color: #3B7D3B;
         }
 
         .coupon-card.disabled {
@@ -632,7 +632,7 @@ function render_custom_checkout() {
         .coupon-code-display {
             font-size: 16px;
             font-weight: 700;
-            color: #0369a1;
+            color: #3B7D3B;
             text-transform: uppercase;
             margin-bottom: 4px;
             letter-spacing: 0.5px;
@@ -658,7 +658,7 @@ function render_custom_checkout() {
         .coupon-discount {
             font-size: 18px;
             font-weight: 700;
-            color: #0369a1;
+            color: #3B7D3B;
             white-space: nowrap;
             margin-right: 12px;
         }
@@ -669,7 +669,7 @@ function render_custom_checkout() {
 
         .coupon-apply-small-btn {
             padding: 8px 16px;
-            background: #0284c7;
+            background: #3B7D3B;
             color: white;
             border: none;
             border-radius: 6px;
@@ -681,7 +681,7 @@ function render_custom_checkout() {
         }
 
         .coupon-apply-small-btn:hover {
-            background: #0369a1;
+            background: #3B7D3B;
             transform: scale(1.05);
         }
 
@@ -1174,6 +1174,7 @@ function render_custom_checkout() {
         }
 
         // Apply Coupon
+        // Update Apply Coupon function
         $('#apply-coupon-btn').click(function() {
             const couponCode = $('#coupon-code-input').val().trim().toUpperCase();
             
@@ -1200,12 +1201,28 @@ function render_custom_checkout() {
                 },
                 success: function(response) {
                     if (response.success) {
+                        // Check individual use restriction
+                        const hasIndividualUseCoupon = appliedCoupons.some(c => c.individual_use === true);
+                        
+                        if (hasIndividualUseCoupon) {
+                            showCouponMessage('You cannot use this coupon with other coupons', 'error');
+                            $('#apply-coupon-btn').prop('disabled', false).text('Apply');
+                            return;
+                        }
+                        
+                        if (response.data.individual_use && appliedCoupons.length > 0) {
+                            showCouponMessage('This coupon cannot be used with other coupons', 'error');
+                            $('#apply-coupon-btn').prop('disabled', false).text('Apply');
+                            return;
+                        }
+                        
                         // Add coupon to applied list
                         appliedCoupons.push({
                             code: couponCode,
                             discount: response.data.discount_amount,
                             type: response.data.discount_type,
-                            description: response.data.description
+                            description: response.data.description,
+                            individual_use: response.data.individual_use || false
                         });
                         
                         // Update UI
@@ -1796,16 +1813,6 @@ function process_complete_checkout() {
     try {
         // Create order
         $order = wc_create_order();
-
-        // Apply coupons if any
-        if (!empty($_POST['applied_coupons'])) {
-            $coupons = json_decode(stripslashes($_POST['applied_coupons']), true);
-            
-            foreach ($coupons as $coupon_data) {
-                $coupon_code = sanitize_text_field($coupon_data['code']);
-                $order->apply_coupon($coupon_code);
-            }
-        }
         
         // Add products
         foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
@@ -1886,6 +1893,50 @@ function process_complete_checkout() {
         $order->set_shipping_postcode(sanitize_text_field($_POST['postcode']));
         $order->set_shipping_country(sanitize_text_field($_POST['country']));
         
+        // Add shipping fee if delivery
+        if ($_POST['delivery_type'] === 'delivery') {
+            $shipping_fee = floatval($_POST['shipping_fee']);
+            if ($shipping_fee > 0) {
+                $item = new WC_Order_Item_Shipping();
+                $item->set_method_title('Delivery Fee');
+                $item->set_method_id('custom_delivery');
+                $item->set_total($shipping_fee);
+                $order->add_item($item);
+            }
+        }
+        
+        // IMPORTANT: Calculate totals BEFORE applying coupons
+        $order->calculate_totals();
+        
+        // Apply coupons if any
+        if (!empty($_POST['applied_coupons'])) {
+            $coupons = json_decode(stripslashes($_POST['applied_coupons']), true);
+            
+            foreach ($coupons as $coupon_data) {
+                $coupon_code = sanitize_text_field($coupon_data['code']);
+                $coupon = new WC_Coupon($coupon_code);
+                
+                if ($coupon->is_valid()) {
+                    // Create coupon line item
+                    $coupon_item = new WC_Order_Item_Coupon();
+                    $coupon_item->set_props(array(
+                        'code' => $coupon_code,
+                        'discount' => $coupon_data['discount'],
+                        'discount_tax' => 0,
+                    ));
+                    
+                    // Add coupon to order
+                    $order->add_item($coupon_item);
+                    
+                    // Update coupon usage count
+                    $coupon->increase_usage_count();
+                    
+                    // Add order note
+                    $order->add_order_note(sprintf('Coupon "%s" applied. Discount: ₱%s', $coupon_code, number_format($coupon_data['discount'], 2)));
+                }
+            }
+        }
+        
         // Set custom meta
         $order->update_meta_data('_delivery_type', sanitize_text_field($_POST['delivery_type']));
         $order->update_meta_data('_delivery_date', sanitize_text_field($_POST['delivery_date']));
@@ -1896,15 +1947,6 @@ function process_complete_checkout() {
         if ($_POST['delivery_type'] === 'delivery') {
             $order->update_meta_data('_delivery_latitude', sanitize_text_field($_POST['address_lat']));
             $order->update_meta_data('_delivery_longitude', sanitize_text_field($_POST['address_lng']));
-            
-            $shipping_fee = floatval($_POST['shipping_fee']);
-            if ($shipping_fee > 0) {
-                $item = new WC_Order_Item_Shipping();
-                $item->set_method_title('Delivery');
-                $item->set_method_id('custom_delivery');
-                $item->set_total($shipping_fee);
-                $order->add_item($item);
-            }
         }
         
         // VAT info
@@ -1940,7 +1982,7 @@ function process_complete_checkout() {
             }
         }
         
-        // Calculate totals and save
+        // IMPORTANT: Recalculate totals after applying coupons
         $order->calculate_totals();
         $order->save();
         
@@ -2127,7 +2169,7 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
     }
 }
 
-// AJAX: Validate and Apply Coupon
+// AJAX: Validate and Apply Coupon - FULL VALIDATION
 add_action('wp_ajax_validate_and_apply_coupon', 'validate_and_apply_coupon');
 add_action('wp_ajax_nopriv_validate_and_apply_coupon', 'validate_and_apply_coupon');
 function validate_and_apply_coupon() {
@@ -2141,22 +2183,81 @@ function validate_and_apply_coupon() {
     // Get coupon object
     $coupon = new WC_Coupon($coupon_code);
     
-    if (!$coupon->is_valid()) {
+    // Check if coupon exists
+    if (!$coupon->get_id()) {
         wp_send_json_error(array('message' => 'Invalid coupon code'));
     }
     
-    // Check usage limit
-    if ($coupon->get_usage_limit() > 0 && $coupon->get_usage_count() >= $coupon->get_usage_limit()) {
-        wp_send_json_error(array('message' => 'This coupon has reached its usage limit'));
+    // Check if coupon is valid (general validation)
+    if (!$coupon->is_valid()) {
+        wp_send_json_error(array('message' => 'This coupon is not valid'));
     }
     
-    // Check expiry date
+    // ========================================
+    // 1. CHECK EXPIRY DATE
+    // ========================================
     $expiry_date = $coupon->get_date_expires();
-    if ($expiry_date && $expiry_date < time()) {
+    if ($expiry_date && $expiry_date->getTimestamp() < time()) {
         wp_send_json_error(array('message' => 'This coupon has expired'));
     }
     
-    // Check minimum amount
+    // ========================================
+    // 2. CHECK USAGE LIMIT (TOTAL)
+    // ========================================
+    $usage_limit = $coupon->get_usage_limit();
+    $usage_count = $coupon->get_usage_count();
+    
+    if ($usage_limit > 0 && $usage_count >= $usage_limit) {
+        wp_send_json_error(array('message' => 'This coupon has reached its usage limit'));
+    }
+    
+    // ========================================
+    // 3. CHECK USAGE LIMIT PER USER
+    // ========================================
+    $usage_limit_per_user = $coupon->get_usage_limit_per_user();
+    
+    if ($usage_limit_per_user > 0) {
+        $user_id = get_current_user_id();
+        $user_email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
+        
+        // Count how many times this user has used this coupon
+        $used_by = $coupon->get_used_by();
+        $user_usage_count = 0;
+        
+        if ($user_id > 0) {
+            $user_usage_count = count(array_filter($used_by, function($customer_id) use ($user_id) {
+                return intval($customer_id) === $user_id;
+            }));
+        }
+        
+        // Also check by email for guest users
+        if (!empty($user_email)) {
+            global $wpdb;
+            $email_usage = $wpdb->get_var($wpdb->prepare(
+                "SELECT COUNT(*) FROM {$wpdb->prefix}postmeta pm
+                LEFT JOIN {$wpdb->prefix}posts p ON pm.post_id = p.ID
+                WHERE pm.meta_key = '_billing_email'
+                AND pm.meta_value = %s
+                AND p.ID IN (
+                    SELECT order_id FROM {$wpdb->prefix}woocommerce_order_items
+                    WHERE order_item_name = %s
+                    AND order_item_type = 'coupon'
+                )",
+                $user_email,
+                $coupon_code
+            ));
+            
+            $user_usage_count = max($user_usage_count, intval($email_usage));
+        }
+        
+        if ($user_usage_count >= $usage_limit_per_user) {
+            wp_send_json_error(array('message' => 'You have reached the usage limit for this coupon'));
+        }
+    }
+    
+    // ========================================
+    // 4. CHECK MINIMUM AMOUNT
+    // ========================================
     $minimum_amount = $coupon->get_minimum_amount();
     if ($minimum_amount > 0 && $cart_total < $minimum_amount) {
         wp_send_json_error(array(
@@ -2164,7 +2265,9 @@ function validate_and_apply_coupon() {
         ));
     }
     
-    // Check maximum amount
+    // ========================================
+    // 5. CHECK MAXIMUM AMOUNT
+    // ========================================
     $maximum_amount = $coupon->get_maximum_amount();
     if ($maximum_amount > 0 && $cart_total > $maximum_amount) {
         wp_send_json_error(array(
@@ -2172,7 +2275,133 @@ function validate_and_apply_coupon() {
         ));
     }
     
-    // Calculate discount
+    // ========================================
+    // 6. CHECK INDIVIDUAL USE ONLY
+    // ========================================
+    if ($coupon->get_individual_use()) {
+        // This coupon cannot be used with other coupons
+        // We'll need to check if other coupons are already applied
+        // This should be handled in frontend when user tries to apply multiple coupons
+    }
+    
+    // ========================================
+    // 7. CHECK PRODUCT RESTRICTIONS
+    // ========================================
+    $product_ids = $coupon->get_product_ids();
+    $excluded_product_ids = $coupon->get_excluded_product_ids();
+    
+    if (!empty($product_ids) || !empty($excluded_product_ids)) {
+        $cart_products = array();
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $cart_products[] = $cart_item['product_id'];
+            if ($cart_item['variation_id']) {
+                $cart_products[] = $cart_item['variation_id'];
+            }
+        }
+        
+        // Check if required products are in cart
+        if (!empty($product_ids)) {
+            $has_valid_product = false;
+            foreach ($product_ids as $product_id) {
+                if (in_array($product_id, $cart_products)) {
+                    $has_valid_product = true;
+                    break;
+                }
+            }
+            
+            if (!$has_valid_product) {
+                wp_send_json_error(array('message' => 'This coupon is not valid for products in your cart'));
+            }
+        }
+        
+        // Check if excluded products are in cart
+        if (!empty($excluded_product_ids)) {
+            foreach ($excluded_product_ids as $excluded_id) {
+                if (in_array($excluded_id, $cart_products)) {
+                    wp_send_json_error(array('message' => 'This coupon cannot be applied to some products in your cart'));
+                }
+            }
+        }
+    }
+    
+    // ========================================
+    // 8. CHECK CATEGORY RESTRICTIONS
+    // ========================================
+    $product_categories = $coupon->get_product_categories();
+    $excluded_product_categories = $coupon->get_excluded_product_categories();
+    
+    if (!empty($product_categories) || !empty($excluded_product_categories)) {
+        $cart_categories = array();
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $product_cats = wp_get_post_terms($cart_item['product_id'], 'product_cat', array('fields' => 'ids'));
+            $cart_categories = array_merge($cart_categories, $product_cats);
+        }
+        $cart_categories = array_unique($cart_categories);
+        
+        // Check if required categories are in cart
+        if (!empty($product_categories)) {
+            $has_valid_category = false;
+            foreach ($product_categories as $cat_id) {
+                if (in_array($cat_id, $cart_categories)) {
+                    $has_valid_category = true;
+                    break;
+                }
+            }
+            
+            if (!$has_valid_category) {
+                wp_send_json_error(array('message' => 'This coupon is not valid for product categories in your cart'));
+            }
+        }
+        
+        // Check if excluded categories are in cart
+        if (!empty($excluded_product_categories)) {
+            foreach ($excluded_product_categories as $excluded_cat) {
+                if (in_array($excluded_cat, $cart_categories)) {
+                    wp_send_json_error(array('message' => 'This coupon cannot be applied to some product categories in your cart'));
+                }
+            }
+        }
+    }
+    
+    // ========================================
+    // 9. CHECK EXCLUDE SALE ITEMS
+    // ========================================
+    if ($coupon->get_exclude_sale_items()) {
+        foreach (WC()->cart->get_cart() as $cart_item) {
+            $product = $cart_item['data'];
+            if ($product->is_on_sale()) {
+                wp_send_json_error(array('message' => 'This coupon cannot be applied to sale items'));
+            }
+        }
+    }
+    
+    // ========================================
+    // 10. CHECK EMAIL RESTRICTIONS
+    // ========================================
+    $email_restrictions = $coupon->get_email_restrictions();
+    if (!empty($email_restrictions)) {
+        $user_email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
+        
+        if (empty($user_email)) {
+            wp_send_json_error(array('message' => 'Please login to use this coupon'));
+        }
+        
+        $is_email_valid = false;
+        foreach ($email_restrictions as $restriction) {
+            if (fnmatch($restriction, $user_email, FNM_CASEFOLD)) {
+                $is_email_valid = true;
+                break;
+            }
+        }
+        
+        if (!$is_email_valid) {
+            wp_send_json_error(array('message' => 'This coupon is not valid for your email address'));
+        }
+    }
+    
+    // ========================================
+    // CALCULATE DISCOUNT
+    // ========================================
     $discount_type = $coupon->get_discount_type();
     $coupon_amount = $coupon->get_amount();
     $discount_amount = 0;
@@ -2182,18 +2411,16 @@ function validate_and_apply_coupon() {
     } elseif ($discount_type === 'percent') {
         $discount_amount = ($cart_total * $coupon_amount) / 100;
         
-        // Check if there's a discount limit
-        $limit_usage_to_x_items = $coupon->get_limit_usage_to_x_items();
-        if ($limit_usage_to_x_items > 0) {
-            $discount_amount = min($discount_amount, $cart_total);
+        // Apply maximum discount amount if set
+        if ($maximum_amount > 0 && $discount_amount > $maximum_amount) {
+            $discount_amount = $maximum_amount;
         }
     }
     
-    // Apply maximum discount amount if set
-    if ($maximum_amount > 0 && $discount_amount > $maximum_amount) {
-        $discount_amount = $maximum_amount;
-    }
+    // Ensure discount doesn't exceed cart total
+    $discount_amount = min($discount_amount, $cart_total);
     
+    // Format description
     $description = '';
     if ($discount_type === 'percent') {
         $description = $coupon_amount . '% off';
@@ -2205,7 +2432,8 @@ function validate_and_apply_coupon() {
         'discount_amount' => $discount_amount,
         'discount_type' => $discount_type,
         'description' => $description,
-        'code' => $coupon_code
+        'code' => $coupon_code,
+        'individual_use' => $coupon->get_individual_use() // THÊM DÒNG NÀY
     ));
 }
 
@@ -2314,4 +2542,64 @@ function get_available_coupons_ajax() {
     wp_send_json_success(array(
         'coupons' => $available_coupons
     ));
+}
+
+// Display coupon information in admin order details
+add_action('woocommerce_admin_order_data_after_order_details', 'display_coupon_info_in_admin');
+function display_coupon_info_in_admin($order) {
+    // Get applied coupons
+    $coupons = $order->get_coupon_codes();
+    
+    if (!empty($coupons)) {
+        echo '<div class="coupon-info-admin" style="padding: 15px; background: #e8f5e9; margin-top: 15px; border-radius: 4px; border-left: 4px solid #4caf50;">';
+        echo '<h3 style="margin-top: 0;">🎟️ Applied Coupons</h3>';
+        
+        foreach ($order->get_items('coupon') as $item_id => $item) {
+            $coupon_code = $item->get_code();
+            $discount_amount = $item->get_discount();
+            
+            echo '<div style="padding: 8px 12px; background: white; border-radius: 4px; margin-bottom: 8px;">';
+            echo '<strong style="color: #2d5016; font-size: 14px; text-transform: uppercase;">' . esc_html($coupon_code) . '</strong>';
+            echo '<span style="float: right; color: #10b981; font-weight: 600;">-₱' . number_format($discount_amount, 2) . '</span>';
+            echo '</div>';
+        }
+        
+        echo '</div>';
+    }
+}
+
+// Add order summary box in admin
+add_action('woocommerce_admin_order_totals_after_total', 'display_order_summary_breakdown');
+function display_order_summary_breakdown($order_id) {
+    $order = wc_get_order($order_id);
+    
+    // Get shipping total
+    $shipping_total = $order->get_shipping_total();
+    
+    // Get discount total
+    $discount_total = $order->get_discount_total();
+    
+    if ($shipping_total > 0 || $discount_total > 0) {
+        ?>
+        <tr>
+            <td colspan="2" style="padding-top: 15px; border-top: 2px solid #ddd;">
+                <div style="background: #f7f7f7; padding: 12px; border-radius: 4px;">
+                    <?php if ($discount_total > 0): ?>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <strong>💰 Total Discount:</strong>
+                        <span style="color: #10b981; font-weight: 600;">-₱<?php echo number_format($discount_total, 2); ?></span>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($shipping_total > 0): ?>
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>🚚 Shipping Fee:</strong>
+                        <span style="font-weight: 600;">₱<?php echo number_format($shipping_total, 2); ?></span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </td>
+        </tr>
+        <?php
+    }
 }

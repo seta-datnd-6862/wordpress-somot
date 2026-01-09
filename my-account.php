@@ -237,16 +237,7 @@ function my_account_inline_func() {
         <div class="mat-main">
             <!-- Tabs -->
             <div class="mat-tabs">
-                <a href="#dashboard" class="mat-tab active" data-content="dashboard">
-                    <span class="mat-tab-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
-                        </svg>
-                    </span> 
-                    Dashboard
-                </a>
-                <a href="#orders" class="mat-tab" data-content="orders">
+                <a href="#orders" class="mat-tab active" data-content="orders">
                     <span class="mat-tab-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="9" cy="21" r="1"></circle>
@@ -281,11 +272,11 @@ function my_account_inline_func() {
             
             <!-- Content -->
             <div class="mat-content">
-                <div class="mat-section active" id="dashboard">
+                <div class="mat-section" id="dashboard">
                     <?php echo get_dashboard_inline(); ?>
                 </div>
                 
-                <div class="mat-section" id="orders">
+                <div class="mat-section active" id="orders">
                     <?php echo get_orders_inline(); ?>
                 </div>
                 
@@ -621,7 +612,7 @@ function get_my_account_inline_styles() {
             background: #3B7D3B;
             padding: 40px 20px;
             text-align: center;
-            margin: -20px -20px 0 -20px;
+            margin: -64px -20px 0 -20px;
         }
         
         .mat-header h1 {
@@ -1107,7 +1098,7 @@ function get_my_account_inline_styles() {
         .mat-btn-save {
             width: 100%;
             padding: 14px;
-            background: #40b9d4;
+            background: #3B7D3B;
             color: #fff;
             border: none;
             border-radius: 6px;
@@ -1119,7 +1110,7 @@ function get_my_account_inline_styles() {
         
         .mat-btn-submit:hover,
         .mat-btn-save:hover {
-            background: #35a0bb;
+            background: #2e6b2e;
         }
         
         /* Social Login */
@@ -1368,9 +1359,6 @@ function get_orders_inline() {
                     ?>
                     <a href="<?php echo esc_url($tracking_url); ?>" class="mat-btn mat-btn-tracking" target="_blank">Tracking</a>
                     
-                    <?php if ($order->needs_payment()) : ?>
-                        <a href="<?php echo $order->get_checkout_payment_url(); ?>" class="mat-btn mat-btn-pay">Pay</a>
-                    <?php endif; ?>
                     <a href="<?php echo $order->get_view_order_url(); ?>" class="mat-btn mat-btn-view">View</a>
                     <?php if (in_array($order->get_status(), array('pending', 'on-hold'))) : ?>
                         <a href="<?php echo $order->get_cancel_order_url(); ?>" class="mat-btn mat-btn-cancel">Cancel</a>
