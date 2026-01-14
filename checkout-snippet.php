@@ -26,17 +26,8 @@ function render_custom_checkout() {
     // Lấy thông tin chi nhánh từ settings
     $branches = array(
         array(
-            'id' => 'tayuman', 
-            'name' => 'Tayuman Branch, Manila', 
-            'lat' => 14.6175959, 
-            'lng' => 120.9837713, 
-            'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila, Philippines',
-            'start_time' => '08:30',
-            'end_time' => '22:00'
-        ),
-        array(
             'id' => 'pioneer', 
-            'name' => 'Pioneer Branch, Pasig', 
+            'name' => 'So Mot Pioneer Center, Pasig city', 
             'lat' => 14.5731404, 
             'lng' => 121.0164509, 
             'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines',
@@ -45,7 +36,7 @@ function render_custom_checkout() {
         ),
         array(
             'id' => 'ayala', 
-            'name' => 'Ayala Cloverleaf, So Mot Vietnamese Restaurant 4th Floor', 
+            'name' => 'So Mot Ayala Malls Cloverleaf', 
             'lat' => 14.6550542, 
             'lng' => 120.9630123, 
             'address' => 'A. Bonifacio Ave, La Loma, Quezon City, 1115 Metro Manila, Philippines',
@@ -741,6 +732,65 @@ function render_custom_checkout() {
         .discount-row {
             color: #10b981;
         }
+        /* Delivery Area Validation */
+        .delivery-area-error {
+            background: #ffebee;
+            border-left: 4px solid #f44336;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .delivery-area-error.show {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .delivery-area-error h4 {
+            margin: 0 0 10px 0;
+            color: #c62828;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .delivery-area-error p {
+            margin: 5px 0;
+            color: #c62828;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .delivery-area-error ul {
+            margin: 10px 0;
+            padding-left: 25px;
+            color: #c62828;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .delivery-area-error li {
+            margin: 3px 0;
+            font-size: 13px;
+        }
+
+        @media (max-width: 768px) {
+            .delivery-area-error ul {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 
     <div class="custom-checkout-wrapper">
@@ -829,6 +879,29 @@ function render_custom_checkout() {
                                     📍 Use My Location
                                 </button>
                                 <div id="address-error" class="error-message hidden">Please select an address from suggestions</div>
+
+                                <!-- Delivery Area Warning -->
+                                <div id="delivery-area-warning" class="delivery-area-error">
+                                    <h4>⚠️ Out of Delivery Area</h4>
+                                    <p>Sorry, we currently only deliver to the following cities in Metro Manila:</p>
+                                    <ul>
+                                        <li>PASAY</li>
+                                        <li>PARANAQUE</li>
+                                        <li>MAKATI</li>
+                                        <li>MANILA</li>
+                                        <li>MANDALUYONG</li>
+                                        <li>TAGUIG</li>
+                                        <li>PASIG</li>
+                                        <li>SAN JUAN</li>
+                                        <li>MALABON</li>
+                                        <li>MARIKINA</li>
+                                        <li>QUEZON CITY</li>
+                                        <li>LAS PIÑAS</li>
+                                        <li>VALENZUELA</li>
+                                        <li>CALOOCAN</li>
+                                    </ul>
+                                    <p><strong>Please select an address within these areas or choose "Pickup" instead.</strong></p>
+                                </div>
                             </div>
 
                             <!-- Branch Suggestions -->
@@ -1174,6 +1247,68 @@ function render_custom_checkout() {
 
         let availableCouponsData = [];
 
+        // Delivery Area Validation
+        const ALLOWED_CITIES = [
+            'PASAY', 'PARANAQUE', 'PARAÑAQUE', 'MAKATI', 'MANILA',
+            'MANDALUYONG', 'TAGUIG', 'PASIG', 'SAN JUAN', 'MALABON',
+            'MARIKINA', 'QUEZON CITY', 'LAS PIÑAS', 'LAS PINAS',
+            'VALENZUELA', 'CALOOCAN'
+        ];
+
+        // Function to validate delivery area
+        function validateDeliveryArea(placeResult, deliveryType) {
+            if (deliveryType !== 'delivery') {
+                $('#delivery-area-warning').removeClass('show');
+                enableProceedButton();
+                return true;
+            }
+            
+            let selectedCity = '';
+            
+            if (placeResult && placeResult.address_components) {
+                for (let component of placeResult.address_components) {
+                    if (component.types.includes('locality') || 
+                        component.types.includes('administrative_area_level_2')) {
+                        selectedCity = component.long_name.toUpperCase();
+                        break;
+                    }
+                }
+            }
+            
+            const isInMetroManila = ALLOWED_CITIES.some(city => 
+                selectedCity.includes(city) || city.includes(selectedCity)
+            );
+            
+            if (!isInMetroManila) {
+                $('#delivery-area-warning').addClass('show');
+                disableProceedButton();
+                $('#distance-info-box').addClass('hidden');
+                calculatedShippingFee = 0;
+                updateOrderTotal();
+                return false;
+            } else {
+                $('#delivery-area-warning').removeClass('show');
+                enableProceedButton();
+                return true;
+            }
+        }
+
+        function disableProceedButton() {
+            $('#proceed-to-payment-btn').prop('disabled', true).css({
+                'opacity': '0.5',
+                'cursor': 'not-allowed',
+                'background': '#ccc'
+            });
+        }
+
+        function enableProceedButton() {
+            $('#proceed-to-payment-btn').prop('disabled', false).css({
+                'opacity': '1',
+                'cursor': 'pointer',
+                'background': '#2d5016'
+            });
+        }
+
         loadAvailableCoupons();
 
         // Load available coupons
@@ -1487,6 +1622,7 @@ function render_custom_checkout() {
                         $('#address-error').removeClass('hidden');
                         $('#address_lat').val('');
                         $('#address_lng').val('');
+                        $('#delivery-area-warning').removeClass('show');
                         return;
                     }
                     
@@ -1497,11 +1633,16 @@ function render_custom_checkout() {
                     $('#address_lat').val(lat);
                     $('#address_lng').val(lng);
                     
-                    // Show nearest branches
-                    showNearestBranches(lat, lng);
+                    // Validate delivery area
+                    const deliveryType = $('input[name="delivery_type"]:checked').val();
+                    const isValidArea = validateDeliveryArea(selectedPlace, deliveryType);
                     
-                    if ($('input[name="delivery_type"]:checked').val() === 'delivery') {
-                        calculateDistance(lat, lng);
+                    if (isValidArea) {
+                        showNearestBranches(lat, lng);
+                        
+                        if (deliveryType === 'delivery') {
+                            calculateDistance(lat, lng);
+                        }
                     }
                 });
             }
@@ -1524,10 +1665,17 @@ function render_custom_checkout() {
                     geocoder.geocode({location: {lat: lat, lng: lng}}, function(results, status) {
                         if (status === 'OK' && results[0]) {
                             $('#address-autocomplete').val(results[0].formatted_address);
-                            showNearestBranches(lat, lng);
+                            selectedPlace = results[0];
                             
-                            if ($('input[name="delivery_type"]:checked').val() === 'delivery') {
-                                calculateDistance(lat, lng);
+                            const deliveryType = $('input[name="delivery_type"]:checked').val();
+                            const isValidArea = validateDeliveryArea(results[0], deliveryType);
+                            
+                            if (isValidArea) {
+                                showNearestBranches(lat, lng);
+                                
+                                if (deliveryType === 'delivery') {
+                                    calculateDistance(lat, lng);
+                                }
                             }
                         }
                         $('#get-location-btn').prop('disabled', false).text('📍 Use My Location');
@@ -1628,25 +1776,33 @@ function render_custom_checkout() {
         
         // Delivery type change
         $('input[name="delivery_type"]').change(function() {
-            if ($(this).val() === 'pickup') {
+            const deliveryType = $(this).val();
+            
+            if (deliveryType === 'pickup') {
                 $('#delivery-date-label').html('Pick up date <span class="required">*</span>');
                 $('#delivery-time-label').html('Pick up time <span class="required">*</span>');
                 $('#delivery-address-fields').addClass('hidden');
                 $('#distance-info-box').addClass('hidden');
+                $('#delivery-area-warning').removeClass('show');
                 $('.delivery-required').removeAttr('required');
                 calculatedShippingFee = 0;
                 updateOrderTotal();
+                enableProceedButton();
             } else {
                 $('#delivery-date-label').html('Delivery date <span class="required">*</span>');
                 $('#delivery-time-label').html('Delivery time <span class="required">*</span>');
                 $('#delivery-address-fields').removeClass('hidden');
                 $('.delivery-required').attr('required', 'required');
                 
-                if ($('#address_lat').val() && $('#address_lng').val()) {
-                    calculateDistance(
-                        parseFloat($('#address_lat').val()),
-                        parseFloat($('#address_lng').val())
-                    );
+                if ($('#address_lat').val() && $('#address_lng').val() && selectedPlace) {
+                    const isValidArea = validateDeliveryArea(selectedPlace, 'delivery');
+                    
+                    if (isValidArea) {
+                        calculateDistance(
+                            parseFloat($('#address_lat').val()),
+                            parseFloat($('#address_lng').val())
+                        );
+                    }
                 }
             }
         });
@@ -1701,6 +1857,33 @@ function render_custom_checkout() {
                     alert('Please select a valid address from suggestions');
                     $('#address-error').removeClass('hidden');
                     return;
+                }
+
+                // Validate delivery area
+                if (selectedPlace) {
+                    const isValidArea = validateDeliveryArea(selectedPlace, 'delivery');
+                    if (!isValidArea) {
+                        alert('Sorry, we only deliver to Metro Manila cities listed. Please select a valid delivery address or choose Pickup option.');
+                        window.scrollTo({
+                            top: $('#delivery-area-warning').offset().top - 100,
+                            behavior: 'smooth'
+                        });
+                        return;
+                    }
+                } else {
+                    // Fallback validation
+                    const address = $('#address-autocomplete').val().toUpperCase();
+                    const isInMetroManila = ALLOWED_CITIES.some(city => address.includes(city));
+                    
+                    if (!isInMetroManila) {
+                        alert('Sorry, we only deliver to Metro Manila cities listed. Please select a valid delivery address or choose Pickup option.');
+                        $('#delivery-area-warning').addClass('show');
+                        window.scrollTo({
+                            top: $('#delivery-area-warning').offset().top - 100,
+                            behavior: 'smooth'
+                        });
+                        return;
+                    }
                 }
             }
             
@@ -2140,7 +2323,7 @@ function process_complete_checkout() {
         WC()->cart->empty_cart();
         
         wp_send_json_success(array(
-            'redirect' => $order->get_checkout_order_received_url()
+            'redirect' => home_url('/thank-you-page/?order_id=' . $order->get_id() . '&key=' . $order->get_order_key())
         ));
         
     } catch (Exception $e) {

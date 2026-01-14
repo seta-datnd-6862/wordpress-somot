@@ -835,7 +835,7 @@ function somot_reservation_inline_css() {
             color: #FFFDF1;
             flex: 1;
             min-width: 200px;
-            padding: 0 24px;
+            padding: 16px 24px;
         }
 
         .btn-primary:hover {
