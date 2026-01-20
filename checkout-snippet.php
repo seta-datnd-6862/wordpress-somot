@@ -43,6 +43,15 @@ function render_custom_checkout() {
             'start_time' => '10:00',
             'end_time' => '22:00'
         ),
+        array(
+            'id' => 'tayuman', 
+            'name' => 'So Mot Tayuman, Santa Cruz, Manila', 
+            'lat' => 14.617797968904622, 
+            'lng' => 120.98393022997824, 
+            'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila',
+            'start_time' => '08:00',
+            'end_time' => '22:00'
+        ),
     );
     
     ?>
@@ -1507,9 +1516,10 @@ function render_custom_checkout() {
             let html = '<div style="margin-bottom: 10px; font-weight: 600; font-size: 14px;">Applied Coupons:</div>';
             
             appliedCoupons.forEach(function(coupon) {
+                console.log('coupon', coupon);
                 html += '<div class="coupon-tag">' +
                     '<span class="coupon-tag-code">' + coupon.code + '</span>' +
-                    '<span class="coupon-tag-discount">-₱' + coupon.discount.toFixed(2) + '</span>' +
+                    '<span class="coupon-tag-discount">-₱' + parseFloat(coupon.discount).toFixed(2) + '</span>' +
                     '<button type="button" class="coupon-remove-btn" onclick="removeCoupon(\'' + coupon.code + '\')">✕</button>' +
                     '</div>';
             });
@@ -1532,7 +1542,7 @@ function render_custom_checkout() {
             const shippingFee = calculatedShippingFee;
             
             // Calculate total discount
-            totalDiscount = appliedCoupons.reduce((sum, coupon) => sum + coupon.discount, 0);
+            totalDiscount = appliedCoupons.reduce((sum, coupon) => sum + parseFloat(coupon.discount), 0);
             
             // Calculate final total
             const total = Math.max(0, subtotal - totalDiscount + shippingFee);

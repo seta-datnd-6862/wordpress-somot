@@ -229,7 +229,7 @@ function thank_you_inline_func() {
 
         <!-- Action Buttons -->
         <div class="tyi-action-buttons">
-            <a href="https://goodriver.online/track-order/<?php echo $order_id; ?>" class="tyi-btn tyi-btn-primary" target="_blank">
+            <a href="https://goodriver.online/guest/share/order/woocommerce/<?php echo $order_key; ?>" class="tyi-btn tyi-btn-primary" target="_blank">
                 🔍 Track My Order
             </a>
             <a href="<?php echo esc_url(wc_get_page_permalink('shop')); ?>" class="tyi-btn tyi-btn-secondary">
