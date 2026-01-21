@@ -1444,6 +1444,8 @@ function render_custom_checkout() {
             
             const cartTotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
             let html = '';
+
+            console.log('availableCouponsData', availableCouponsData);
             
             availableCouponsData.forEach(function(coupon) {
                 const isApplied = appliedCoupons.some(c => c.code === coupon.code);
@@ -2753,7 +2755,7 @@ function get_available_coupons_ajax() {
                 continue;
             }
             
-            // Check usage limit
+            //Check usage limit
             if ($coupon->get_usage_limit() > 0 && $coupon->get_usage_count() >= $coupon->get_usage_limit()) {
                 continue;
             }
