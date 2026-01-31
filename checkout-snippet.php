@@ -1349,8 +1349,7 @@ function render_custom_checkout() {
             });
         }
 
-        // Apply Coupon
-        // Update Apply Coupon function
+        // Apply Coupon - COMPLETE FIXED VERSION
         $('#apply-coupon-btn').click(function() {
             const couponCode = $('#coupon-code-input').val().trim().toUpperCase();
             
@@ -1377,6 +1376,15 @@ function render_custom_checkout() {
                 },
                 success: function(response) {
                     if (response.success) {
+                        // ✅ Safely parse discount amount
+                        let discountAmount = 0;
+                        if (response.data && response.data.discount_amount !== undefined) {
+                            discountAmount = parseFloat(response.data.discount_amount);
+                            if (isNaN(discountAmount)) {
+                                discountAmount = 0;
+                            }
+                        }
+                        
                         // Check individual use restriction
                         const hasIndividualUseCoupon = appliedCoupons.some(c => c.individual_use === true);
                         
@@ -1386,7 +1394,8 @@ function render_custom_checkout() {
                             return;
                         }
                         
-                        if (response.data.individual_use && appliedCoupons.length > 0) {
+                        const isIndividualUse = response.data && response.data.individual_use === true;
+                        if (isIndividualUse && appliedCoupons.length > 0) {
                             showCouponMessage('This coupon cannot be used with other coupons', 'error');
                             $('#apply-coupon-btn').prop('disabled', false).text('Apply');
                             return;
@@ -1395,10 +1404,10 @@ function render_custom_checkout() {
                         // Add coupon to applied list
                         appliedCoupons.push({
                             code: couponCode,
-                            discount: response.data.discount_amount,
-                            type: response.data.discount_type,
-                            description: response.data.description,
-                            individual_use: response.data.individual_use || false
+                            discount: discountAmount,
+                            type: response.data.discount_type || 'percent',
+                            description: response.data.description || '',
+                            individual_use: isIndividualUse
                         });
                         
                         // Update UI
@@ -1406,20 +1415,28 @@ function render_custom_checkout() {
                         updateOrderTotalWithCoupons();
                         
                         $('#coupon-code-input').val('');
-                        showCouponMessage('Coupon applied successfully! You saved ₱' + response.data.discount_amount.toFixed(2), 'success');
+                        showCouponMessage('Coupon applied successfully! You saved ₱' + discountAmount.toFixed(2), 'success');
                     } else {
-                        showCouponMessage(response.data.message, 'error');
+                        const errorMessage = response.data && response.data.message ? response.data.message : 'Invalid coupon code';
+                        showCouponMessage(errorMessage, 'error');
                     }
                     
                     $('#apply-coupon-btn').prop('disabled', false).text('Apply');
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error('AJAX Error:', {
+                        status: status,
+                        error: error,
+                        response: xhr.responseText
+                    });
                     showCouponMessage('Error validating coupon. Please try again.', 'error');
                     $('#apply-coupon-btn').prop('disabled', false).text('Apply');
                 }
             });
         });
 
+        
+        
         // Enter key to apply coupon
         $('#coupon-code-input').keypress(function(e) {
             if (e.which === 13) {
@@ -2465,7 +2482,7 @@ function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, 
     }
 }
 
-// AJAX: Validate and Apply Coupon - FULL VALIDATION
+// AJAX: Validate and Apply Coupon - COMPLETE WITH GLOBAL & INDIVIDUAL MIN/MAX
 add_action('wp_ajax_validate_and_apply_coupon', 'validate_and_apply_coupon');
 add_action('wp_ajax_nopriv_validate_and_apply_coupon', 'validate_and_apply_coupon');
 function validate_and_apply_coupon() {
@@ -2516,7 +2533,6 @@ function validate_and_apply_coupon() {
         $user_id = get_current_user_id();
         $user_email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
         
-        // Count how many times this user has used this coupon
         $used_by = $coupon->get_used_by();
         $user_usage_count = 0;
         
@@ -2526,7 +2542,6 @@ function validate_and_apply_coupon() {
             }));
         }
         
-        // Also check by email for guest users
         if (!empty($user_email)) {
             global $wpdb;
             $email_usage = $wpdb->get_var($wpdb->prepare(
@@ -2552,127 +2567,7 @@ function validate_and_apply_coupon() {
     }
     
     // ========================================
-    // 4. CHECK MINIMUM AMOUNT
-    // ========================================
-    $minimum_amount = $coupon->get_minimum_amount();
-    if ($minimum_amount > 0 && $cart_total < $minimum_amount) {
-        wp_send_json_error(array(
-            'message' => 'Minimum order amount of ₱' . number_format($minimum_amount, 2) . ' required for this coupon'
-        ));
-    }
-    
-    // ========================================
-    // 5. CHECK MAXIMUM AMOUNT
-    // ========================================
-    $maximum_amount = $coupon->get_maximum_amount();
-    if ($maximum_amount > 0 && $cart_total > $maximum_amount) {
-        wp_send_json_error(array(
-            'message' => 'Maximum order amount of ₱' . number_format($maximum_amount, 2) . ' exceeded for this coupon'
-        ));
-    }
-    
-    // ========================================
-    // 6. CHECK INDIVIDUAL USE ONLY
-    // ========================================
-    if ($coupon->get_individual_use()) {
-        // This coupon cannot be used with other coupons
-        // We'll need to check if other coupons are already applied
-        // This should be handled in frontend when user tries to apply multiple coupons
-    }
-    
-    // ========================================
-    // 7. CHECK PRODUCT RESTRICTIONS
-    // ========================================
-    $product_ids = $coupon->get_product_ids();
-    $excluded_product_ids = $coupon->get_excluded_product_ids();
-    
-    if (!empty($product_ids) || !empty($excluded_product_ids)) {
-        $cart_products = array();
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            $cart_products[] = $cart_item['product_id'];
-            if ($cart_item['variation_id']) {
-                $cart_products[] = $cart_item['variation_id'];
-            }
-        }
-        
-        // Check if required products are in cart
-        if (!empty($product_ids)) {
-            $has_valid_product = false;
-            foreach ($product_ids as $product_id) {
-                if (in_array($product_id, $cart_products)) {
-                    $has_valid_product = true;
-                    break;
-                }
-            }
-            
-            if (!$has_valid_product) {
-                wp_send_json_error(array('message' => 'This coupon is not valid for products in your cart'));
-            }
-        }
-        
-        // Check if excluded products are in cart
-        if (!empty($excluded_product_ids)) {
-            foreach ($excluded_product_ids as $excluded_id) {
-                if (in_array($excluded_id, $cart_products)) {
-                    wp_send_json_error(array('message' => 'This coupon cannot be applied to some products in your cart'));
-                }
-            }
-        }
-    }
-    
-    // ========================================
-    // 8. CHECK CATEGORY RESTRICTIONS
-    // ========================================
-    $product_categories = $coupon->get_product_categories();
-    $excluded_product_categories = $coupon->get_excluded_product_categories();
-    
-    if (!empty($product_categories) || !empty($excluded_product_categories)) {
-        $cart_categories = array();
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            $product_cats = wp_get_post_terms($cart_item['product_id'], 'product_cat', array('fields' => 'ids'));
-            $cart_categories = array_merge($cart_categories, $product_cats);
-        }
-        $cart_categories = array_unique($cart_categories);
-        
-        // Check if required categories are in cart
-        if (!empty($product_categories)) {
-            $has_valid_category = false;
-            foreach ($product_categories as $cat_id) {
-                if (in_array($cat_id, $cart_categories)) {
-                    $has_valid_category = true;
-                    break;
-                }
-            }
-            
-            if (!$has_valid_category) {
-                wp_send_json_error(array('message' => 'This coupon is not valid for product categories in your cart'));
-            }
-        }
-        
-        // Check if excluded categories are in cart
-        if (!empty($excluded_product_categories)) {
-            foreach ($excluded_product_categories as $excluded_cat) {
-                if (in_array($excluded_cat, $cart_categories)) {
-                    wp_send_json_error(array('message' => 'This coupon cannot be applied to some product categories in your cart'));
-                }
-            }
-        }
-    }
-    
-    // ========================================
-    // 9. CHECK EXCLUDE SALE ITEMS
-    // ========================================
-    if ($coupon->get_exclude_sale_items()) {
-        foreach (WC()->cart->get_cart() as $cart_item) {
-            $product = $cart_item['data'];
-            if ($product->is_on_sale()) {
-                wp_send_json_error(array('message' => 'This coupon cannot be applied to sale items'));
-            }
-        }
-    }
-    
-    // ========================================
-    // 10. CHECK EMAIL RESTRICTIONS
+    // 4. CHECK EMAIL RESTRICTIONS
     // ========================================
     $email_restrictions = $coupon->get_email_restrictions();
     if (!empty($email_restrictions)) {
@@ -2696,16 +2591,253 @@ function validate_and_apply_coupon() {
     }
     
     // ========================================
-    // CALCULATE DISCOUNT
+    // 5. GET COUPON RESTRICTIONS
+    // ========================================
+    $product_ids = $coupon->get_product_ids();
+    $excluded_product_ids = $coupon->get_excluded_product_ids();
+    $product_categories = $coupon->get_product_categories();
+    $excluded_product_categories = $coupon->get_excluded_product_categories();
+    $exclude_sale_items = $coupon->get_exclude_sale_items();
+    
+    // ========================================
+    // 6. SMART COUPONS PRO - GET QUANTITY SETTINGS
+    // ========================================
+    $wt_sc_coupon_categories = get_post_meta($coupon->get_id(), '_wt_sc_coupon_categories', true);
+    $wt_enable_category_restriction = get_post_meta($coupon->get_id(), '_wt_enable_product_category_restriction', true);
+    $wt_use_individual_min_max = get_post_meta($coupon->get_id(), '_wt_use_individual_min_max', true);
+    $wt_min_matching_product_qty = get_post_meta($coupon->get_id(), '_wt_min_matching_product_qty', true);
+    $wt_max_matching_product_qty = get_post_meta($coupon->get_id(), '_wt_max_matching_product_qty', true);
+    $wt_category_condition = get_post_meta($coupon->get_id(), '_wt_category_condition', true);
+    
+    // ========================================
+    // 7. FILTER ELIGIBLE CART ITEMS & COUNT QUANTITIES
+    // ========================================
+    $eligible_items = array();
+    $eligible_total = 0;
+    $eligible_quantity = 0;
+    $category_quantities = array();
+    
+    foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+        $product = $cart_item['data'];
+        $product_id = $cart_item['product_id'];
+        $variation_id = $cart_item['variation_id'];
+        $item_total = $cart_item['line_total'];
+        $quantity = $cart_item['quantity'];
+        
+        $is_eligible = true;
+        
+        // Check if product is excluded
+        if (!empty($excluded_product_ids)) {
+            if (in_array($product_id, $excluded_product_ids) || 
+                ($variation_id && in_array($variation_id, $excluded_product_ids))) {
+                $is_eligible = false;
+            }
+        }
+        
+        // Check if product is in required products list
+        if ($is_eligible && !empty($product_ids)) {
+            if (!in_array($product_id, $product_ids) && 
+                !($variation_id && in_array($variation_id, $product_ids))) {
+                $is_eligible = false;
+            }
+        }
+        
+        // Check product categories
+        if ($is_eligible) {
+            $product_cats = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'ids'));
+            
+            // Check excluded categories
+            if (!empty($excluded_product_categories)) {
+                foreach ($excluded_product_categories as $excluded_cat) {
+                    if (in_array($excluded_cat, $product_cats)) {
+                        $is_eligible = false;
+                        break;
+                    }
+                }
+            }
+            
+            // Check required categories
+            if ($is_eligible && !empty($product_categories)) {
+                $has_required_category = false;
+                foreach ($product_categories as $required_cat) {
+                    if (in_array($required_cat, $product_cats)) {
+                        $has_required_category = true;
+                        
+                        // Count quantity per category
+                        if (!isset($category_quantities[$required_cat])) {
+                            $category_quantities[$required_cat] = 0;
+                        }
+                        $category_quantities[$required_cat] += $quantity;
+                        
+                        break;
+                    }
+                }
+                if (!$has_required_category) {
+                    $is_eligible = false;
+                }
+            }
+        }
+        
+        // Check if product is on sale (if coupon excludes sale items)
+        if ($is_eligible && $exclude_sale_items && $product->is_on_sale()) {
+            $is_eligible = false;
+        }
+        
+        // Add to eligible items
+        if ($is_eligible) {
+            $eligible_items[] = array(
+                'cart_item_key' => $cart_item_key,
+                'product_id' => $product_id,
+                'product_name' => $product->get_name(),
+                'quantity' => $quantity,
+                'item_total' => $item_total
+            );
+            $eligible_total += $item_total;
+            $eligible_quantity += $quantity;
+        }
+    }
+    
+    // ========================================
+    // 8. CHECK IF ANY ELIGIBLE ITEMS EXIST
+    // ========================================
+    if (empty($eligible_items)) {
+        // Build helpful error message
+        $error_message = 'This coupon is not valid for any products in your cart.';
+        
+        if (!empty($product_categories)) {
+            $cat_names = array();
+            foreach ($product_categories as $cat_id) {
+                $category = get_term($cat_id, 'product_cat');
+                if ($category) {
+                    $cat_names[] = $category->name;
+                }
+            }
+            if (!empty($cat_names)) {
+                $error_message = 'This coupon only applies to: ' . implode(', ', $cat_names);
+            }
+        }
+        
+        wp_send_json_error(array('message' => $error_message));
+    }
+    
+    // ========================================
+    // 9. CHECK QUANTITY RESTRICTIONS
+    // ========================================
+    
+    // 9A. INDIVIDUAL MIN/MAX PER CATEGORY (như 25OFFPHO)
+    if ($wt_enable_category_restriction === 'yes' && 
+        $wt_use_individual_min_max === 'yes' && 
+        !empty($wt_sc_coupon_categories) && 
+        is_array($wt_sc_coupon_categories)) {
+        
+        // Validate minimum và maximum quantity cho từng category
+        foreach ($wt_sc_coupon_categories as $cat_id => $qty_rules) {
+            $min_qty = !empty($qty_rules['min']) ? intval($qty_rules['min']) : 0;
+            $max_qty = !empty($qty_rules['max']) ? intval($qty_rules['max']) : 0;
+            $current_qty = isset($category_quantities[$cat_id]) ? $category_quantities[$cat_id] : 0;
+            
+            // Get category name for error message
+            $category = get_term($cat_id, 'product_cat');
+            $category_name = $category ? $category->name : 'required category';
+            
+            // Check minimum quantity
+            if ($min_qty > 0 && $current_qty < $min_qty) {
+                wp_send_json_error(array(
+                    'message' => sprintf(
+                        'You need at least %d item(s) from "%s" to use this coupon. Currently: %d item(s)',
+                        $min_qty,
+                        $category_name,
+                        $current_qty
+                    )
+                ));
+            }
+            
+            // Check maximum quantity
+            if ($max_qty > 0 && $current_qty > $max_qty) {
+                wp_send_json_error(array(
+                    'message' => sprintf(
+                        'Maximum %d item(s) from "%s" allowed for this coupon. Currently: %d item(s)',
+                        $max_qty,
+                        $category_name,
+                        $current_qty
+                    )
+                ));
+            }
+        }
+    }
+    // 9B. GLOBAL MIN/MAX (như LUNCH100)
+    else if ($wt_enable_category_restriction === 'yes' && 
+             $wt_use_individual_min_max === 'no') {
+        
+        $global_min_qty = !empty($wt_min_matching_product_qty) ? intval($wt_min_matching_product_qty) : 0;
+        $global_max_qty = !empty($wt_max_matching_product_qty) ? intval($wt_max_matching_product_qty) : 0;
+        
+        // Check minimum quantity (tổng số sản phẩm eligible)
+        if ($global_min_qty > 0 && $eligible_quantity < $global_min_qty) {
+            wp_send_json_error(array(
+                'message' => sprintf(
+                    'You need at least %d item(s) from eligible categories to use this coupon. Currently: %d item(s)',
+                    $global_min_qty,
+                    $eligible_quantity
+                )
+            ));
+        }
+        
+        // Check maximum quantity
+        if ($global_max_qty > 0 && $eligible_quantity > $global_max_qty) {
+            wp_send_json_error(array(
+                'message' => sprintf(
+                    'Maximum %d item(s) from eligible categories allowed for this coupon. Currently: %d item(s)',
+                    $global_max_qty,
+                    $eligible_quantity
+                )
+            ));
+        }
+    }
+    
+    // ========================================
+    // 10. CHECK MINIMUM AMOUNT (on eligible items only)
+    // ========================================
+    $minimum_amount = $coupon->get_minimum_amount();
+    if ($minimum_amount > 0 && $eligible_total < $minimum_amount) {
+        wp_send_json_error(array(
+            'message' => sprintf(
+                'Minimum order amount of ₱%s required for eligible products (Current: ₱%s)',
+                number_format($minimum_amount, 2),
+                number_format($eligible_total, 2)
+            )
+        ));
+    }
+    
+    // ========================================
+    // 11. CHECK MAXIMUM AMOUNT
+    // ========================================
+    $maximum_amount = $coupon->get_maximum_amount();
+    if ($maximum_amount > 0 && $eligible_total > $maximum_amount) {
+        wp_send_json_error(array(
+            'message' => 'Maximum order amount of ₱' . number_format($maximum_amount, 2) . ' exceeded for this coupon'
+        ));
+    }
+    
+    // ========================================
+    // 12. CALCULATE DISCOUNT (only on eligible items)
     // ========================================
     $discount_type = $coupon->get_discount_type();
     $coupon_amount = $coupon->get_amount();
     $discount_amount = 0;
     
-    if ($discount_type === 'fixed_cart' || $discount_type === 'fixed_product') {
-        $discount_amount = min($coupon_amount, $cart_total);
+    if ($discount_type === 'fixed_cart') {
+        // Fixed cart discount applies to entire eligible total
+        $discount_amount = min($coupon_amount, $eligible_total);
+    } elseif ($discount_type === 'fixed_product') {
+        // Fixed product discount applies per eligible item
+        foreach ($eligible_items as $item) {
+            $item_discount = min($coupon_amount * $item['quantity'], $item['item_total']);
+            $discount_amount += $item_discount;
+        }
     } elseif ($discount_type === 'percent') {
-        $discount_amount = ($cart_total * $coupon_amount) / 100;
+        // Percentage discount on eligible items
+        $discount_amount = ($eligible_total * $coupon_amount) / 100;
         
         // Apply maximum discount amount if set
         if ($maximum_amount > 0 && $discount_amount > $maximum_amount) {
@@ -2713,23 +2845,48 @@ function validate_and_apply_coupon() {
         }
     }
     
-    // Ensure discount doesn't exceed cart total
-    $discount_amount = min($discount_amount, $cart_total);
+    // Ensure discount doesn't exceed eligible total
+    $discount_amount = min($discount_amount, $eligible_total);
     
     // Format description
     $description = '';
     if ($discount_type === 'percent') {
         $description = $coupon_amount . '% off';
+    } else if ($discount_type === 'fixed_product') {
+        $description = '₱' . number_format($coupon_amount, 2) . ' off per item';
     } else {
         $description = '₱' . number_format($coupon_amount, 2) . ' off';
     }
     
+    // Add info about eligible items
+    $eligible_count = count($eligible_items);
+    $total_items = count(WC()->cart->get_cart());
+    
+    if ($eligible_count < $total_items) {
+        $description .= ' (' . $eligible_quantity . ' eligible items)';
+    }
+    
+    // Build detailed eligible products list
+    $eligible_products_info = array();
+    foreach ($eligible_items as $item) {
+        $eligible_products_info[] = array(
+            'name' => $item['product_name'],
+            'quantity' => $item['quantity'],
+            'subtotal' => floatval($item['item_total'])
+        );
+    }
+    
     wp_send_json_success(array(
-        'discount_amount' => $discount_amount,
+        'discount_amount' => floatval($discount_amount),
         'discount_type' => $discount_type,
         'description' => $description,
         'code' => $coupon_code,
-        'individual_use' => $coupon->get_individual_use() // THÊM DÒNG NÀY
+        'individual_use' => $coupon->get_individual_use(),
+        'eligible_items' => intval($eligible_count),
+        'eligible_quantity' => intval($eligible_quantity),
+        'total_items' => intval($total_items),
+        'eligible_total' => floatval($eligible_total),
+        'eligible_products' => $eligible_products_info
     ));
 }
 
