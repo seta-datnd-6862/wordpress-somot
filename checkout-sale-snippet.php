@@ -795,17 +795,121 @@ function render_custom_checkout() {
             font-size: 13px;
         }
 
+        /* Sale Products Section */
+        .sale-products-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .sale-product-card {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .sale-product-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #2d5016;
+        }
+
+        .sale-product-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .sale-product-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .sale-product-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1f2937;
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+
+        .sale-product-prices {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .sale-original-price {
+            text-decoration: line-through;
+            color: #9ca3af;
+            font-size: 13px;
+        }
+
+        .sale-price {
+            color: #ef4444;
+            font-weight: 700;
+            font-size: 16px;
+        }
+
+        .sale-badge {
+            display: inline-block;
+            background: #ef4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .add-sale-product-btn {
+            padding: 8px 16px;
+            background: #2d5016;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+            align-self: flex-end;
+        }
+
+        .add-sale-product-btn:hover {
+            background: #1f3810;
+        }
+
+        .add-sale-product-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .no-sale-products {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading-sale-products {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
         @media (max-width: 768px) {
             .delivery-area-error ul {
                 grid-template-columns: 1fr;
             }
         }
-										
-		@media (min-width: 922px) {
-			.ast-container {
-				max-width: 1690px !important;
-			}
-		}
     </style>
 
     <div class="custom-checkout-wrapper">
@@ -1158,6 +1262,14 @@ function render_custom_checkout() {
                             <button type="button" class="place-order-btn" id="proceed-to-payment-btn">
                                 Proceed to Payment
                             </button>
+
+                            <!-- PRODUCTS ON SALE SECTION -->
+                            <div class="sale-products-section" style="margin-top: 30px; padding-top: 25px; border-top: 2px solid #eee;">
+                                <div class="section-title" style="font-size: 18px; margin-bottom: 15px;">🔥 Products on Sale</div>
+                                <div id="sale-products-list" class="sale-products-list">
+                                    <div class="loading-sale-products">Loading sale products...</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2097,6 +2209,169 @@ function render_custom_checkout() {
             // Default time range if no branch selected
             updateTimeOptions('07:00', '23:00');
         }
+
+        // Load sale products
+        loadSaleProducts();
+
+        function loadSaleProducts() {
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'get_sale_products'
+                },
+                success: function(response) {
+                    if (response.success && response.data.products && response.data.products.length > 0) {
+                        renderSaleProducts(response.data.products);
+                    } else {
+                        $('#sale-products-list').html('<div class="no-sale-products">No sale products available</div>');
+                    }
+                },
+                error: function() {
+                    $('#sale-products-list').html('<div class="no-sale-products">Error loading sale products</div>');
+                }
+            });
+        }
+
+        function renderSaleProducts(products) {
+            let html = '';
+            
+            products.forEach(function(product) {
+                const discount = Math.round(((product.regular_price - product.sale_price) / product.regular_price) * 100);
+                
+                html += '<div class="sale-product-card">' +
+                    '<img src="' + product.image + '" alt="' + product.name + '" class="sale-product-image">' +
+                    '<div class="sale-product-info">' +
+                        '<div>' +
+                            '<div class="sale-product-name">' + product.name + '</div>' +
+                            '<div class="sale-product-prices">' +
+                                '<span class="sale-price">₱' + parseFloat(product.sale_price).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</span>' +
+                                '<span class="sale-original-price">₱' + parseFloat(product.regular_price).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</span>' +
+                                '<span class="sale-badge">-' + discount + '%</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<button type="button" class="add-sale-product-btn" onclick="addSaleProductToCart(' + product.id + ')">' +
+                            'Add to Cart' +
+                        '</button>' +
+                    '</div>' +
+                '</div>';
+            });
+            
+            $('#sale-products-list').html(html);
+        }
+
+        // Add sale product to cart (UPDATED - NO RELOAD)
+        window.addSaleProductToCart = function(productId) {
+            const $btn = $('button[onclick="addSaleProductToCart(' + productId + ')"]');
+            $btn.prop('disabled', true).text('Adding...');
+            
+            $.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'add_sale_product_to_cart',
+                    product_id: productId
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Add product to order items display
+                        addProductToOrderDisplay(response.data.product);
+                        
+                        // Update totals
+                        updateCartTotals(response.data.cart_totals);
+                        
+                        // Show success message
+                        showSuccessMessage('✅ Product added to cart!');
+                        
+                        // Re-enable button
+                        $btn.prop('disabled', false).text('Add to Cart');
+                        
+                        // Reload available coupons (cart total changed)
+                        loadAvailableCoupons();
+                    } else {
+                        alert(response.data.message || 'Error adding product to cart');
+                        $btn.prop('disabled', false).text('Add to Cart');
+                    }
+                },
+                error: function() {
+                    alert('Error adding product to cart');
+                    $btn.prop('disabled', false).text('Add to Cart');
+                }
+            });
+        };
+
+        // Add product to order display
+        function addProductToOrderDisplay(product) {
+            const orderItemHtml = '<div class="order-item">' +
+                '<img src="' + product.image + '" alt="' + product.name + '">' +
+                '<div class="order-item-info">' +
+                    '<div class="order-item-name">' + product.name + '</div>' +
+                    '<div class="order-item-quantity">Quantity: ' + product.quantity + '</div>' +
+                '</div>' +
+                '<div class="order-item-price">' +
+                    '₱' + parseFloat(product.price).toLocaleString('en-US', {minimumFractionDigits: 2}) +
+                '</div>' +
+            '</div>';
+            
+            $('#order-items').append(orderItemHtml);
+            
+            // Also update step 2 if exists
+            if ($('#order-summary-step2').length > 0) {
+                $('#order-summary-step2 #order-items').append(orderItemHtml);
+            }
+        }
+
+        // Update cart totals
+        function updateCartTotals(totals) {
+            const subtotal = parseFloat(totals.subtotal);
+            const shippingFee = calculatedShippingFee || 0;
+            
+            // Update subtotal
+            $('#subtotal').text('₱' + subtotal.toLocaleString('en-US', {minimumFractionDigits: 2}));
+            
+            // Recalculate total with coupons and shipping
+            updateOrderTotalWithCoupons();
+        }
+
+        // Show success message
+        function showSuccessMessage(message) {
+            // Create toast notification
+            const toast = $('<div class="success-toast">' + message + '</div>');
+            
+            $('body').append(toast);
+            
+            // Add CSS for toast if not exists
+            if (!$('#toast-style').length) {
+                $('<style id="toast-style">' +
+                    '.success-toast {' +
+                        'position: fixed;' +
+                        'top: 20px;' +
+                        'right: 20px;' +
+                        'background: #10b981;' +
+                        'color: white;' +
+                        'padding: 15px 25px;' +
+                        'border-radius: 8px;' +
+                        'box-shadow: 0 4px 12px rgba(0,0,0,0.2);' +
+                        'z-index: 9999;' +
+                        'animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;' +
+                        'font-weight: 600;' +
+                    '}' +
+                    '@keyframes slideIn {' +
+                        'from { transform: translateX(400px); opacity: 0; }' +
+                        'to { transform: translateX(0); opacity: 1; }' +
+                    '}' +
+                    '@keyframes slideOut {' +
+                        'from { transform: translateX(0); opacity: 1; }' +
+                        'to { transform: translateX(400px); opacity: 0; }' +
+                    '}' +
+                '</style>').appendTo('head');
+            }
+            
+            // Remove toast after animation
+            setTimeout(function() {
+                toast.remove();
+            }, 3000);
+        }
     });
     </script>
     <?php
@@ -2838,6 +3113,107 @@ function get_available_coupons_ajax() {
     wp_send_json_success(array(
         'coupons' => $available_coupons
     ));
+}
+
+// AJAX: Get Sale Products
+add_action('wp_ajax_get_sale_products', 'get_sale_products_ajax');
+add_action('wp_ajax_nopriv_get_sale_products', 'get_sale_products_ajax');
+function get_sale_products_ajax() {
+    $args = array(
+        'post_type' => 'product',
+        'posts_per_page' => 5, // Giới hạn 5 sản phẩm
+        'post_status' => 'publish',
+        'meta_query' => array(
+            'relation' => 'AND',
+            array(
+                'key' => '_sale_price',
+                'value' => 0,
+                'compare' => '>',
+                'type' => 'NUMERIC'
+            ),
+            array(
+                'key' => '_stock_status',
+                'value' => 'instock'
+            )
+        ),
+        'orderby' => 'meta_value_num',
+        'order' => 'DESC'
+    );
+    
+    $products_query = new WP_Query($args);
+    $sale_products = array();
+    
+    if ($products_query->have_posts()) {
+        while ($products_query->have_posts()) {
+            $products_query->the_post();
+            $product_id = get_the_ID();
+            $product = wc_get_product($product_id);
+            
+            // Double check if product is on sale
+            if ($product && $product->is_on_sale()) {
+                $sale_products[] = array(
+                    'id' => $product_id,
+                    'name' => $product->get_name(),
+                    'regular_price' => $product->get_regular_price(),
+                    'sale_price' => $product->get_sale_price(),
+                    'image' => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail') ?: wc_placeholder_img_src()
+                );
+            }
+        }
+        wp_reset_postdata();
+    }
+    
+    wp_send_json_success(array(
+        'products' => $sale_products
+    ));
+}
+
+// AJAX: Add Sale Product to Cart
+// AJAX: Add Sale Product to Cart (UPDATED - RETURN FULL DATA)
+add_action('wp_ajax_add_sale_product_to_cart', 'add_sale_product_to_cart_ajax');
+add_action('wp_ajax_nopriv_add_sale_product_to_cart', 'add_sale_product_to_cart_ajax');
+function add_sale_product_to_cart_ajax() {
+    $product_id = intval($_POST['product_id']);
+    
+    if (empty($product_id)) {
+        wp_send_json_error(array('message' => 'Invalid product'));
+    }
+    
+    $product = wc_get_product($product_id);
+    
+    if (!$product || !$product->is_in_stock()) {
+        wp_send_json_error(array('message' => 'Product is not available'));
+    }
+    
+    // Add product to cart
+    $cart_item_key = WC()->cart->add_to_cart($product_id, 1);
+    
+    if ($cart_item_key) {
+        // Get product info
+        $product_data = array(
+            'name' => $product->get_name(),
+            'quantity' => 1,
+            'price' => $product->get_price(),
+            'image' => wp_get_attachment_image_url($product->get_image_id(), 'thumbnail') ?: wc_placeholder_img_src()
+        );
+        
+        // Get updated cart totals
+        WC()->cart->calculate_totals();
+        
+        $cart_totals = array(
+            'subtotal' => WC()->cart->get_subtotal(),
+            'total' => WC()->cart->get_total('raw'),
+            'cart_count' => WC()->cart->get_cart_contents_count()
+        );
+        
+        wp_send_json_success(array(
+            'message' => 'Product added to cart successfully',
+            'product' => $product_data,
+            'cart_totals' => $cart_totals
+        ));
+    } else {
+        wp_send_json_error(array('message' => 'Failed to add product to cart'));
+    }
 }
 
 // Display coupon information in admin order details
