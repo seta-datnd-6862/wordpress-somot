@@ -151,6 +151,45 @@ function thank_you_inline_func() {
                                 <?php if ($item->get_variation_id()): ?>
                                     <br>Variation: <?php echo wc_get_formatted_variation($product, true); ?>
                                 <?php endif; ?>
+                                
+                                <?php
+                                // ========================================
+                                // HIỂN THỊ ADDON TRONG THANK YOU PAGE
+                                // ========================================
+                                $item_meta = $item->get_meta_data();
+                                $addon_html = '';
+                                
+                                foreach ($item_meta as $meta) {
+                                    $meta_key = $meta->get_data()['key'];
+                                    $meta_value = $meta->get_data()['value'];
+                                    
+                                    // Skip internal meta (bắt đầu bằng _)
+                                    if (substr($meta_key, 0, 1) === '_') {
+                                        continue;
+                                    }
+                                    
+                                    // Skip variation attributes
+                                    if (strpos($meta_key, 'pa_') === 0) {
+                                        continue;
+                                    }
+                                    
+                                    // Đây là addon meta
+                                    if (!empty($meta_value)) {
+                                        $addon_html .= '<div class="tyi-addon-item">';
+                                        $addon_html .= '<strong>' . esc_html($meta_key) . ':</strong> ';
+                                        $addon_html .= esc_html($meta_value);
+                                        $addon_html .= '</div>';
+                                    }
+                                }
+                                
+                                // Hiển thị addon nếu có
+                                if (!empty($addon_html)) {
+                                    echo '<div class="tyi-order-addons">';
+                                    echo '<strong style="color: #10b981; margin-top: 8px; display: block;">Add-ons:</strong>';
+                                    echo $addon_html;
+                                    echo '</div>';
+                                }
+                                ?>
                             </div>
                         </div>
                         <div class="tyi-order-item-price">
@@ -566,6 +605,30 @@ function get_thank_you_inline_styles() {
             color: #991b1b;
             margin-bottom: 15px;
         }
+
+        .tyi-order-addons {
+            margin-top: 10px;
+            padding: 10px;
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            border-left: 3px solid #10b981;
+            border-radius: 6px;
+        }
+
+        .tyi-addon-item {
+            font-size: 13px;
+            color: #065f46;
+            margin: 4px 0;
+            padding: 4px 0;
+        }
+
+        .tyi-addon-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .tyi-addon-item strong {
+            color: #047857;
+            font-weight: 600;
+        }
         
         /* Responsive */
         @media (max-width: 768px) {
@@ -586,5 +649,11 @@ function get_thank_you_inline_styles() {
                 height: 150px;
             }
         }
+
+        @media (min-width: 922px) {
+			.ast-container {
+				max-width: 1690px !important;
+			}
+		}
     ';
 }

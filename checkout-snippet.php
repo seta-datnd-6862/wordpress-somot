@@ -1086,6 +1086,7 @@ function render_custom_checkout() {
                             <div id="order-items">
                                 <?php
                                 foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+                                    // var_dump($cart_item); // For debugging purposes
                                     $_product = apply_filters('woocommerce_cart_item_product', $cart_item['data'], $cart_item, $cart_item_key);
                                     $product_id = apply_filters('woocommerce_cart_item_product_id', $cart_item['product_id'], $cart_item, $cart_item_key);
                                     
@@ -1108,24 +1109,35 @@ function render_custom_checkout() {
                                                 }
                                                 
                                                 // Display Add-ons (Custom Add-ons Plugin)
-                                                if (!empty($cart_item['custom_addons'])) {
+                                                if (!empty($cart_item['prad_selection']) && !empty($cart_item['prad_selection']['extra_data'])) {
                                                     echo '<div class="order-item-addons">';
-                                                    echo '<strong>Add-on:</strong><br>';
-                                                    foreach ($cart_item['custom_addons'] as $addon) {
-                                                        $addon_label = isset($addon['optionLabel']) ? $addon['optionLabel'] : (isset($addon['label']) ? $addon['label'] : '');
-                                                        $addon_price = isset($addon['price']) ? $addon['price'] : 0;
-                                                        $addon_qty = isset($addon['qty']) ? $addon['qty'] : 1;
-                                                        
-                                                        echo '<div class="addon-item">';
-                                                        echo esc_html($addon_label);
-                                                        if ($addon_qty > 1) {
-                                                            echo ' × ' . esc_html($addon_qty);
+                                                    echo '<strong>Add-ons:</strong><br>';
+                                                    
+                                                    foreach ($cart_item['prad_selection']['extra_data'] as $addon_data) {
+                                                        if (isset($addon_data['name']) && isset($addon_data['prad_additional']['field_raw'])) {
+                                                            $field_raw = $addon_data['prad_additional']['field_raw'];
+                                                            $addon_name = $addon_data['name'];
+                                                            
+                                                            // Get selected values and costs
+                                                            $values = isset($field_raw['value']) ? $field_raw['value'] : array();
+                                                            $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
+                                                            
+                                                            if (!empty($values) && is_array($values)) {
+                                                                // Display each selected addon
+                                                                foreach ($values as $index => $value_name) {
+                                                                    $cost = isset($costs[$index]) ? floatval($costs[$index]) : 0;
+                                                                    
+                                                                    echo '<div class="addon-item">';
+                                                                    echo esc_html($value_name);
+                                                                    if ($cost > 0) {
+                                                                        echo ' — ₱' . number_format($cost, 2);
+                                                                    }
+                                                                    echo '</div>';
+                                                                }
+                                                            }
                                                         }
-                                                        if ($addon_price > 0) {
-                                                            echo ' — ₱' . number_format($addon_price, 2);
-                                                        }
-                                                        echo '</div>';
                                                     }
+                                                    
                                                     echo '</div>';
                                                 }
                                                 ?>
@@ -2176,6 +2188,52 @@ function process_complete_checkout() {
                     // Add addon price to subtotal and total
                     $order_item->set_subtotal($original_subtotal + $total_addon_price);
                     $order_item->set_total($original_total + $total_addon_price);
+                    
+                    // Save the item
+                    $order_item->save();
+                }
+            }
+
+            if (!empty($cart_item['prad_selection'])) {
+                // Get total addon price from prad_selection
+                $prad_addon_price = isset($cart_item['prad_selection']['price']) ? floatval($cart_item['prad_selection']['price']) : 0;
+                
+                // Save detailed addon information
+                if (!empty($cart_item['prad_selection']['extra_data'])) {
+                    foreach ($cart_item['prad_selection']['extra_data'] as $addon_data) {
+                        if (isset($addon_data['name']) && isset($addon_data['prad_additional']['field_raw'])) {
+                            $field_raw = $addon_data['prad_additional']['field_raw'];
+                            $addon_name = $addon_data['name'];
+                            
+                            // Get selected values and costs
+                            $values = isset($field_raw['value']) ? $field_raw['value'] : array();
+                            $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
+                            
+                            if (!empty($values) && is_array($values)) {
+                                // Save each selected addon
+                                foreach ($values as $index => $value_name) {
+                                    $cost = isset($costs[$index]) ? floatval($costs[$index]) : 0;
+                                    
+                                    // Save addon as order item meta
+                                    wc_add_order_item_meta($item_id, $addon_name, $value_name);
+                                    
+                                    if ($cost > 0) {
+                                        wc_add_order_item_meta($item_id, '_addon_' . sanitize_title($value_name) . '_price', $cost);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Update line item total to include addon prices
+                if ($prad_addon_price > 0 && $order_item) {
+                    $original_subtotal = $order_item->get_subtotal();
+                    $original_total = $order_item->get_total();
+                    
+                    // Add addon price to subtotal and total
+                    $order_item->set_subtotal($original_subtotal + $prad_addon_price);
+                    $order_item->set_total($original_total + $prad_addon_price);
                     
                     // Save the item
                     $order_item->save();
