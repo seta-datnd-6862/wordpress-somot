@@ -2126,6 +2126,38 @@ function render_custom_checkout() {
             // Default time range if no branch selected
             updateTimeOptions('07:00', '23:00');
         }
+		// ========================================
+        // TỰ ĐỘNG ÁP DỤNG MÃ TỪ SLIDER (AUTO-APPLY)
+        // ========================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoCoupon = urlParams.get('apply_coupon');
+
+        if (autoCoupon) {
+            // Đợi toàn bộ trang và các script khác (như loadAvailableCoupons) tải xong
+            $(window).on('load', function() {
+                setTimeout(function() {
+                    const $couponInput = $('#coupon-code-input');
+                    const $applyBtn = $('#apply-coupon-btn');
+                    
+                    if ($couponInput.length && $applyBtn.length) {
+                        // 1. Điền mã vào ô
+                        $couponInput.val(autoCoupon);
+                        
+                        // 2. Kích hoạt sự kiện nhấn nút Apply hiện có của trang
+                        $applyBtn.trigger('click');
+                        
+                        // 3. Xóa tham số trên URL để khách F5 không bị áp dụng lại từ đầu
+                        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                        window.history.replaceState({path:newUrl}, '', newUrl);
+                        
+                        // 4. Cuộn nhẹ xuống phần Coupon để khách thấy thông báo thành công
+                        $('html, body').animate({
+                            scrollTop: $(".coupon-section").offset().top - 100
+                        }, 500);
+                    }
+                }, 1500); // Độ trễ 1.5s để đảm bảo các logic phí ship/chi nhánh đã ổn định
+            });
+        }
     });
     </script>
     <?php
