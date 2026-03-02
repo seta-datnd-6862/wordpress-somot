@@ -833,7 +833,7 @@ function render_custom_checkout() {
                     <div>
                         <!-- Delivery Type -->
                         <div class="checkout-section">
-                            <div class="section-title">🚗 Delivery</div>
+                            <div class="section-title">🚗 Delivery Options</div>
                             <div class="delivery-type">
                                 <div class="delivery-option">
                                     <input type="radio" id="pickup" name="delivery_type" value="pickup" checked>
@@ -956,14 +956,17 @@ function render_custom_checkout() {
                                 <select name="delivery_time" id="delivery_time_select" class="test" required>
                                     <!-- select time each 15 mins from 07:00 to 23:00 -->
                                     <?php
-                                    for ($hour = 7; $hour < 23; $hour++) {
-                                        for ($min = 0; $min < 60; $min += 15) {
-                                            $time = sprintf('%02d:%02d', $hour, $min);
-                                            echo '<option value="' . $time . '">' . $time . '</option>';
+                                        for ($hour = 7; $hour < 23; $hour++) {
+                                            for ($min = 0; $min < 60; $min += 15) {
+                                                $time24 = sprintf('%02d:%02d', $hour, $min);
+                                                $ampm = $hour >= 12 ? 'PM' : 'AM';
+                                                $hour12 = $hour % 12 ?: 12;
+                                                $time12 = sprintf('%d:%02d %s', $hour12, $min, $ampm);
+                                                echo '<option value="' . $time24 . '">' . $time12 . '</option>';
+                                            }
                                         }
-                                    }
                                     ?>
-                                    <option value="23:00">23:00</option>
+                                    <option value="23:00">11:00 PM</option>
                                 </select>
                             </div>
 
@@ -1198,7 +1201,7 @@ function render_custom_checkout() {
                                 <div class="account-number">09277224868</div>
                                 <div class="qr-code" style="text-align: center;">
                                     <p style="font-size: 12px; margin: 10px 0 5px 0;">Scan QR Code:</p>
-                                    <img src="https://so-mot.com/wp-content/uploads/2025/12/z7330745065666_747ea90e7659f5a825197205af4829e7.jpg" alt="GCash QR Code">
+                                    <img src="https://so-mot.com/wp-content/uploads/2026/03/gcash-ANATALIO-JR-FRANCISCO.jpg" alt="GCash QR Code">
                                 </div>
                             </div>
                             <!-- BDO Account -->
@@ -1206,6 +1209,16 @@ function render_custom_checkout() {
                                 <h4>🏦 BPI</h4>
                                 <p style="margin: 5px 0; color: #666;">Account Name: <strong>KEYSTONE VENTURE NETWORK CORPORATION</strong></p>
                                 <div class="account-number">0251000611</div>
+                            </div>
+
+                            <div class="bank-VNL-card">
+                                <h4>📱 TP Bank</h4>
+                                <p style="margin: 5px 0; color: #666;">Account Name: <strong>TRAN THI HOA</strong></p>
+                                <div class="account-number">10001327503</div>
+                                <div class="qr-code" style="text-align: center;">
+                                    <p style="font-size: 12px; margin: 10px 0 5px 0;">Scan QR Code:</p>
+                                    <img src="https://so-mot.com/wp-content/uploads/2026/03/tpbank-c-Hoa.jpg" alt="TP Bank QR Code">
+                                </div>
                             </div>
                             
                         </div>
@@ -1606,30 +1619,29 @@ function render_custom_checkout() {
         // Function to generate time options based on branch hours
         function updateTimeOptions(startTime, endTime) {
             const $timeSelect = $('#delivery_time_select');
-            const currentValue = $timeSelect.val(); // Save current selection
+            const currentValue = $timeSelect.val();
             
             if (!startTime || !endTime) {
-                // Default: 7:00 - 23:00
                 startTime = '07:00';
                 endTime = '23:00';
             }
             
-            // Parse start and end times
             const [startHour, startMin] = startTime.split(':').map(Number);
             const [endHour, endMin] = endTime.split(':').map(Number);
             
-            // Clear current options
             $timeSelect.empty();
             
-            // Generate time options
             let currentHour = startHour;
             let currentMin = startMin;
             
             while (currentHour < endHour || (currentHour === endHour && currentMin <= endMin)) {
-                const time = sprintf('%02d:%02d', currentHour, currentMin);
-                $timeSelect.append('<option value="' + time + '">' + time + '</option>');
+                const time24 = (currentHour < 10 ? '0' : '') + currentHour + ':' + (currentMin < 10 ? '0' : '') + currentMin;
+                const ampm = currentHour >= 12 ? 'PM' : 'AM';
+                const hour12 = currentHour % 12 || 12;
+                const time12 = hour12 + ':' + (currentMin < 10 ? '0' : '') + currentMin + ' ' + ampm;
                 
-                // Increment by 15 minutes
+                $timeSelect.append('<option value="' + time24 + '">' + time12 + '</option>');
+                
                 currentMin += 15;
                 if (currentMin >= 60) {
                     currentMin = 0;
@@ -1637,11 +1649,9 @@ function render_custom_checkout() {
                 }
             }
             
-            // Restore previous selection if still valid
             if (currentValue && $timeSelect.find('option[value="' + currentValue + '"]').length > 0) {
                 $timeSelect.val(currentValue);
             } else {
-                // Select first option as default
                 $timeSelect.val($timeSelect.find('option:first').val());
             }
         }
@@ -3016,6 +3026,12 @@ function get_available_coupons_ajax() {
             // Check expiry date
             $expiry_date = $coupon->get_date_expires();
             if ($expiry_date && $expiry_date->getTimestamp() < time()) {
+                continue;
+            }
+
+            // Hide specific coupons from display
+            $hidden_coupons = array('WINSFOODTRIPS', 'DISCOUNT50');
+            if (in_array(strtoupper($coupon->get_code()), $hidden_coupons)) {
                 continue;
             }
             
