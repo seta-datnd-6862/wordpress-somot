@@ -1,3 +1,4 @@
+
 // ========================================
 // CUSTOM CHECKOUT PAGE WITH 2-STEP PROCESS (WITH ADD-ONS SUPPORT)
 // ========================================
@@ -16,10 +17,10 @@ function calculate_cart_item_real_total($cart_item) {
     $_product = $cart_item['data'];
     $quantity = $cart_item['quantity'];
     
-    // Giá gốc sản phẩm (1 đơn vị)
+    // Giá hiển thị cho khách hàng (regular/sale price trên shop)
     $product_price = floatval($_product->get_price());
     
-    // line_total từ WooCommerce cart (đã là price × quantity)
+    // line_total từ WooCommerce cart - có thể bị plugin filter giá thấp hơn
     $wc_line_total = floatval($cart_item['line_total']);
     $wc_line_tax = floatval($cart_item['line_tax']);
     
@@ -30,36 +31,17 @@ function calculate_cart_item_real_total($cart_item) {
     
     // Add-ons từ plugin prad
     if (!empty($cart_item['prad_selection']) && !empty($cart_item['prad_selection']['extra_data'])) {
-        // Kiểm tra xem plugin prad đã cộng giá addon vào line_total chưa
-        $prad_total_price = isset($cart_item['prad_selection']['price']) ? floatval($cart_item['prad_selection']['price']) : 0;
-        
-        // So sánh line_total với base (product_price * quantity) để xem prad đã cộng addon chưa
-        $base_total = $product_price * $quantity;
-        $prad_already_included = (abs($wc_line_total - $base_total) >= $prad_total_price * 0.9 && $prad_total_price > 0);
-        
-        if (!$prad_already_included) {
-            // prad chưa cộng vào line_total → cần cộng thêm
-            foreach ($cart_item['prad_selection']['extra_data'] as $addon_data) {
-                if (isset($addon_data['prad_additional']['field_raw'])) {
-                    $field_raw = $addon_data['prad_additional']['field_raw'];
-                    $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
-                    
-                    if (!empty($costs) && is_array($costs)) {
-                        foreach ($costs as $cost) {
-                            $addon_total += floatval($cost);
-                        }
+        foreach ($cart_item['prad_selection']['extra_data'] as $addon_data) {
+            if (isset($addon_data['prad_additional']['field_raw'])) {
+                $field_raw = $addon_data['prad_additional']['field_raw'];
+                $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
+                
+                if (!empty($costs) && is_array($costs)) {
+                    foreach ($costs as $cost) {
+                        $addon_total += floatval($cost);
                     }
                 }
             }
-        } else {
-            // prad đã cộng addon vào line_total, nhưng đã nhân theo quantity
-            // Cần trừ đi phần addon đã nhân thừa: addon đã tính = prad_total_price * quantity
-            // Đúng ra chỉ cần tính x1: prad_total_price
-            // Vậy cần trừ: prad_total_price * (quantity - 1)
-            if ($quantity > 1 && $prad_total_price > 0) {
-                $addon_total = -($prad_total_price * ($quantity - 1));
-            }
-            // Nếu quantity = 1 thì prad đã tính đúng, không cần sửa
         }
     }
     
@@ -72,15 +54,19 @@ function calculate_cart_item_real_total($cart_item) {
         }
     }
     
-    // Line total thực = WC line_total + tax + addon adjustment (chỉ x1)
-    $real_line_total = $wc_line_total + $wc_line_tax + $addon_total;
+    // ========================================
+    // Line total thực = get_price() × quantity + addon (x1)
+    // Dùng get_price() thay vì wc_line_total vì WC cart có thể bị
+    // plugin filter giá khác với giá hiển thị trên shop
+    // ========================================
+    $real_line_total = ($product_price * $quantity) + $addon_total;
     
     return array(
-        'product_price'   => $product_price,
-        'addon_total'     => $addon_total,     // Tổng addon adjustment (có thể âm nếu cần trừ bớt)
-        'wc_line_total'   => $wc_line_total,
+        'product_price'   => $product_price,   // Giá hiển thị 1 đơn vị (₱894)
+        'addon_total'     => $addon_total,      // Tổng addon (chỉ x1)
+        'wc_line_total'   => $wc_line_total,    // Giá WC cart gốc (có thể khác)
         'quantity'        => $quantity,
-        'line_total'      => $real_line_total,
+        'line_total'      => $real_line_total,   // Giá thực = price×qty + addon
     );
 }
 
@@ -2108,11 +2094,11 @@ function process_complete_checkout() {
             $order_item = $order->get_item($item_id);
             
             // ========================================
-            // FIX: Tính giá add-ons chính xác bằng helper
-            // Add-ons chỉ tính x1, không nhân quantity
+            // FIX: Tính giá chính xác bằng helper
+            // Override giá WC cart (có thể bị plugin filter thấp hơn)
+            // bằng giá hiển thị get_price() + addon x1
             // ========================================
             $item_calc = calculate_cart_item_real_total($cart_item);
-            $addon_adjustment = $item_calc['addon_total'];
             
             // Save custom_addons meta
             if (!empty($cart_item['custom_addons'])) {
@@ -2160,15 +2146,17 @@ function process_complete_checkout() {
             }
             
             // ========================================
-            // FIX: Cập nhật line item total
-            // addon_adjustment có thể dương (cần cộng thêm) hoặc âm (cần trừ bớt vì prad đã nhân thừa)
+            // FIX: Override toàn bộ giá line item
+            // Dùng get_price() × qty + addon thay vì giá WC cart
+            // Subtotal = get_price() × quantity (giá trước addon, WC dùng cho hiển thị)
+            // Total = get_price() × quantity + addon (giá thực tế phải trả)
             // ========================================
-            if ($addon_adjustment != 0 && $order_item) {
-                $original_subtotal = $order_item->get_subtotal();
-                $original_total = $order_item->get_total();
+            if ($order_item) {
+                $correct_subtotal = $item_calc['product_price'] * $quantity;
+                $correct_total = $item_calc['line_total']; // = price×qty + addon
                 
-                $order_item->set_subtotal($original_subtotal + $addon_adjustment);
-                $order_item->set_total($original_total + $addon_adjustment);
+                $order_item->set_subtotal($correct_subtotal);
+                $order_item->set_total($correct_total);
                 $order_item->save();
             }
         }
@@ -2208,8 +2196,33 @@ function process_complete_checkout() {
             }
         }
         
-        // Calculate totals BEFORE applying coupons
-        $order->calculate_totals();
+        // ========================================
+        // FIX: Tự tính order total thay vì dùng calculate_totals()
+        // vì calculate_totals() có thể reset lại item prices từ product gốc
+        // ========================================
+        
+        // Tính items subtotal (đã bao gồm addon)
+        $items_subtotal = 0;
+        foreach ($order->get_items() as $item) {
+            $items_subtotal += $item->get_total();
+        }
+        
+        // Tính shipping total
+        $shipping_total = 0;
+        foreach ($order->get_items('shipping') as $item) {
+            $shipping_total += $item->get_total();
+        }
+        
+        // Tính discount total
+        $discount_total = 0;
+        foreach ($order->get_items('coupon') as $item) {
+            $discount_total += $item->get_discount();
+        }
+        
+        // Set order totals
+        $order->set_shipping_total($shipping_total);
+        $order->set_discount_total($discount_total);
+        $order->set_total($items_subtotal + $shipping_total - $discount_total);
         
         // Apply coupons
         if (!empty($_POST['applied_coupons'])) {
@@ -2279,8 +2292,28 @@ function process_complete_checkout() {
             }
         }
         
-        // Recalculate totals after applying coupons
-        $order->calculate_totals();
+        // ========================================
+        // FIX: Tự tính lại order total sau khi apply coupons
+        // KHÔNG dùng calculate_totals() vì nó reset addon prices
+        // ========================================
+        $items_subtotal = 0;
+        foreach ($order->get_items() as $item) {
+            $items_subtotal += $item->get_total();
+        }
+        
+        $shipping_total = 0;
+        foreach ($order->get_items('shipping') as $item) {
+            $shipping_total += $item->get_total();
+        }
+        
+        $discount_total = 0;
+        foreach ($order->get_items('coupon') as $item) {
+            $discount_total += $item->get_discount();
+        }
+        
+        $order->set_shipping_total($shipping_total);
+        $order->set_discount_total($discount_total);
+        $order->set_total($items_subtotal + $shipping_total - $discount_total);
         $order->save();
         
         // Create customer account or associate
