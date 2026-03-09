@@ -1,4 +1,3 @@
-<?php
 // ========================================
 // CUSTOM CHECKOUT PAGE WITH 2-STEP PROCESS (WITH ADD-ONS SUPPORT)
 // ========================================
@@ -24,17 +23,17 @@ function calculate_cart_item_real_total($cart_item) {
     $wc_line_total = floatval($cart_item['line_total']);
     $wc_line_tax = floatval($cart_item['line_tax']);
     
-    // Tính tổng add-ons cho 1 đơn vị
-    $addon_total_per_unit = 0;
+    // ========================================
+    // Tính tổng add-ons (LUÔN CHỈ x1, không nhân quantity)
+    // ========================================
+    $addon_total = 0;
     
     // Add-ons từ plugin prad
     if (!empty($cart_item['prad_selection']) && !empty($cart_item['prad_selection']['extra_data'])) {
         // Kiểm tra xem plugin prad đã cộng giá addon vào line_total chưa
-        // Nếu prad_selection có field 'price' tổng → đó là tổng addon đã tính
         $prad_total_price = isset($cart_item['prad_selection']['price']) ? floatval($cart_item['prad_selection']['price']) : 0;
         
-        // Nếu prad đã cộng vào line_total thì không cộng lại
-        // Kiểm tra bằng cách so sánh: line_total vs product_price * quantity
+        // So sánh line_total với base (product_price * quantity) để xem prad đã cộng addon chưa
         $base_total = $product_price * $quantity;
         $prad_already_included = (abs($wc_line_total - $base_total) >= $prad_total_price * 0.9 && $prad_total_price > 0);
         
@@ -47,37 +46,41 @@ function calculate_cart_item_real_total($cart_item) {
                     
                     if (!empty($costs) && is_array($costs)) {
                         foreach ($costs as $cost) {
-                            $addon_total_per_unit += floatval($cost);
+                            $addon_total += floatval($cost);
                         }
                     }
                 }
             }
+        } else {
+            // prad đã cộng addon vào line_total, nhưng đã nhân theo quantity
+            // Cần trừ đi phần addon đã nhân thừa: addon đã tính = prad_total_price * quantity
+            // Đúng ra chỉ cần tính x1: prad_total_price
+            // Vậy cần trừ: prad_total_price * (quantity - 1)
+            if ($quantity > 1 && $prad_total_price > 0) {
+                $addon_total = -($prad_total_price * ($quantity - 1));
+            }
+            // Nếu quantity = 1 thì prad đã tính đúng, không cần sửa
         }
-        // Nếu prad đã cộng rồi thì addon_total_per_unit = 0, line_total WC đã đúng
     }
     
-    // Add-ons từ custom_addons (nếu có)
+    // Add-ons từ custom_addons (nếu có) - cũng chỉ x1
     if (!empty($cart_item['custom_addons'])) {
         foreach ($cart_item['custom_addons'] as $addon) {
             $addon_price = isset($addon['price']) ? floatval($addon['price']) : 0;
             $addon_qty = isset($addon['qty']) ? intval($addon['qty']) : 1;
-            $addon_total_per_unit += ($addon_price * $addon_qty);
+            $addon_total += ($addon_price * $addon_qty);
         }
     }
     
-    // Tổng addon cho toàn bộ line (addon_per_unit × quantity)
-    $addon_total_for_line = $addon_total_per_unit * $quantity;
-    
-    // Line total thực = WC line_total + addon chưa được tính + tax
-    $real_line_total = $wc_line_total + $wc_line_tax + $addon_total_for_line;
+    // Line total thực = WC line_total + tax + addon adjustment (chỉ x1)
+    $real_line_total = $wc_line_total + $wc_line_tax + $addon_total;
     
     return array(
-        'product_price'        => $product_price,
-        'addon_total_per_unit' => $addon_total_per_unit,
-        'addon_total_for_line' => $addon_total_for_line,
-        'wc_line_total'        => $wc_line_total,
-        'quantity'             => $quantity,
-        'line_total'           => $real_line_total,
+        'product_price'   => $product_price,
+        'addon_total'     => $addon_total,     // Tổng addon adjustment (có thể âm nếu cần trừ bớt)
+        'wc_line_total'   => $wc_line_total,
+        'quantity'        => $quantity,
+        'line_total'      => $real_line_total,
     );
 }
 
@@ -1112,7 +1115,10 @@ function render_custom_checkout() {
                                         <div class="order-item">
                                             <img src="<?php echo esc_url(wp_get_attachment_image_url($_product->get_image_id(), 'thumbnail')); ?>" alt="<?php echo esc_attr($_product->get_name()); ?>">
                                             <div class="order-item-info">
-                                                <div class="order-item-name"><?php echo wp_kses_post($_product->get_name()); ?></div>
+                                                <div class="order-item-name">
+                                                    <?php echo wp_kses_post($_product->get_name()); ?>
+                                                    <span style="font-weight: 400; color: #666; font-size: 13px;"> — ₱<?php echo number_format($item_calc['product_price'], 2); ?></span>
+                                                </div>
                                                 <div class="order-item-quantity">Quantity: <?php echo $cart_item['quantity']; ?></div>
                                                 
                                                 <?php
@@ -1158,8 +1164,8 @@ function render_custom_checkout() {
                                             </div>
                                             <div class="order-item-price">
                                                 <?php 
-                                                // Hiển thị giá gốc sản phẩm (không cộng add-ons)
-                                                echo '₱' . number_format($cart_item['line_total'] + $cart_item['line_tax'], 2); 
+                                                // FIX: Hiển thị giá = (product_price × quantity) + addon x1
+                                                echo '₱' . number_format($item_calc['line_total'], 2); 
                                                 ?>
                                             </div>
                                         </div>
@@ -2103,9 +2109,10 @@ function process_complete_checkout() {
             
             // ========================================
             // FIX: Tính giá add-ons chính xác bằng helper
+            // Add-ons chỉ tính x1, không nhân quantity
             // ========================================
             $item_calc = calculate_cart_item_real_total($cart_item);
-            $addon_total_for_line = $item_calc['addon_total_for_line'];
+            $addon_adjustment = $item_calc['addon_total'];
             
             // Save custom_addons meta
             if (!empty($cart_item['custom_addons'])) {
@@ -2153,15 +2160,15 @@ function process_complete_checkout() {
             }
             
             // ========================================
-            // FIX: Cập nhật line item total bao gồm add-ons
-            // Chỉ cần cộng 1 lần duy nhất từ helper
+            // FIX: Cập nhật line item total
+            // addon_adjustment có thể dương (cần cộng thêm) hoặc âm (cần trừ bớt vì prad đã nhân thừa)
             // ========================================
-            if ($addon_total_for_line > 0 && $order_item) {
+            if ($addon_adjustment != 0 && $order_item) {
                 $original_subtotal = $order_item->get_subtotal();
                 $original_total = $order_item->get_total();
                 
-                $order_item->set_subtotal($original_subtotal + $addon_total_for_line);
-                $order_item->set_total($original_total + $addon_total_for_line);
+                $order_item->set_subtotal($original_subtotal + $addon_adjustment);
+                $order_item->set_total($original_total + $addon_adjustment);
                 $order_item->save();
             }
         }
