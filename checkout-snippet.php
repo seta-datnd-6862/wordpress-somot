@@ -1,8 +1,87 @@
+<?php
 // ========================================
 // CUSTOM CHECKOUT PAGE WITH 2-STEP PROCESS (WITH ADD-ONS SUPPORT)
 // ========================================
+// FIX LOG:
+// - Thêm helper function calculate_cart_item_real_total()
+// - Fix hiển thị giá từng item: bao gồm add-ons × quantity  
+// - Fix subtotal: tính thủ công thay vì WC()->cart->get_subtotal()
+// - Fix lưu order: dùng helper để tính addon_total chính xác
+// - Fix validate coupon: eligible_total tính bao gồm addons
+// ========================================
 
-// 1. Detect custom checkout page và hiển thị nội dung
+// ============================================================
+// HELPER: Tính giá thực của 1 cart item bao gồm add-ons
+// ============================================================
+function calculate_cart_item_real_total($cart_item) {
+    $_product = $cart_item['data'];
+    $quantity = $cart_item['quantity'];
+    
+    // Giá gốc sản phẩm (1 đơn vị)
+    $product_price = floatval($_product->get_price());
+    
+    // line_total từ WooCommerce cart (đã là price × quantity)
+    $wc_line_total = floatval($cart_item['line_total']);
+    $wc_line_tax = floatval($cart_item['line_tax']);
+    
+    // Tính tổng add-ons cho 1 đơn vị
+    $addon_total_per_unit = 0;
+    
+    // Add-ons từ plugin prad
+    if (!empty($cart_item['prad_selection']) && !empty($cart_item['prad_selection']['extra_data'])) {
+        // Kiểm tra xem plugin prad đã cộng giá addon vào line_total chưa
+        // Nếu prad_selection có field 'price' tổng → đó là tổng addon đã tính
+        $prad_total_price = isset($cart_item['prad_selection']['price']) ? floatval($cart_item['prad_selection']['price']) : 0;
+        
+        // Nếu prad đã cộng vào line_total thì không cộng lại
+        // Kiểm tra bằng cách so sánh: line_total vs product_price * quantity
+        $base_total = $product_price * $quantity;
+        $prad_already_included = (abs($wc_line_total - $base_total) >= $prad_total_price * 0.9 && $prad_total_price > 0);
+        
+        if (!$prad_already_included) {
+            // prad chưa cộng vào line_total → cần cộng thêm
+            foreach ($cart_item['prad_selection']['extra_data'] as $addon_data) {
+                if (isset($addon_data['prad_additional']['field_raw'])) {
+                    $field_raw = $addon_data['prad_additional']['field_raw'];
+                    $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
+                    
+                    if (!empty($costs) && is_array($costs)) {
+                        foreach ($costs as $cost) {
+                            $addon_total_per_unit += floatval($cost);
+                        }
+                    }
+                }
+            }
+        }
+        // Nếu prad đã cộng rồi thì addon_total_per_unit = 0, line_total WC đã đúng
+    }
+    
+    // Add-ons từ custom_addons (nếu có)
+    if (!empty($cart_item['custom_addons'])) {
+        foreach ($cart_item['custom_addons'] as $addon) {
+            $addon_price = isset($addon['price']) ? floatval($addon['price']) : 0;
+            $addon_qty = isset($addon['qty']) ? intval($addon['qty']) : 1;
+            $addon_total_per_unit += ($addon_price * $addon_qty);
+        }
+    }
+    
+    // Tổng addon cho toàn bộ line (addon_per_unit × quantity)
+    $addon_total_for_line = $addon_total_per_unit * $quantity;
+    
+    // Line total thực = WC line_total + addon chưa được tính + tax
+    $real_line_total = $wc_line_total + $wc_line_tax + $addon_total_for_line;
+    
+    return array(
+        'product_price'        => $product_price,
+        'addon_total_per_unit' => $addon_total_per_unit,
+        'addon_total_for_line' => $addon_total_for_line,
+        'wc_line_total'        => $wc_line_total,
+        'quantity'             => $quantity,
+        'line_total'           => $real_line_total,
+    );
+}
+
+// 1. Detect custom checkout page
 add_filter('the_content', 'custom_checkout_page_content');
 function custom_checkout_page_content($content) {
     if (is_page('checkout')) {
@@ -15,7 +94,6 @@ function custom_checkout_page_content($content) {
 
 // 2. Hàm render custom checkout
 function render_custom_checkout() {
-    // Kiểm tra giỏ hàng
     if (WC()->cart->is_empty()) {
         echo '<div class="woocommerce"><div class="woocommerce-notices-wrapper">';
         echo '<div class="woocommerce-info">Your shopping cart is empty. <a href="' . get_permalink(wc_get_page_id('shop')) . '">Continue shopping</a></div>';
@@ -23,7 +101,6 @@ function render_custom_checkout() {
         return;
     }
     
-    // Lấy thông tin chi nhánh từ settings
     $branches = array(
         array(
             'id' => 'pioneer', 
@@ -53,6 +130,20 @@ function render_custom_checkout() {
             'end_time' => '22:00'
         ),
     );
+    
+    // ========================================
+    // FIX: Tính trước subtotal thực (bao gồm addons × quantity)
+    // ========================================
+    $calculated_subtotal = 0;
+    $cart_items_calculated = array();
+    foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+        $_product = $cart_item['data'];
+        if ($_product && $_product->exists() && $cart_item['quantity'] > 0) {
+            $item_calc = calculate_cart_item_real_total($cart_item);
+            $cart_items_calculated[$cart_item_key] = $item_calc;
+            $calculated_subtotal += $item_calc['line_total'];
+        }
+    }
     
     ?>
     <style>
@@ -342,7 +433,6 @@ function render_custom_checkout() {
             font-weight: bold;
         }
         
-        /* Step 2 - Payment Section */
         .payment-section {
             background: white;
             padding: 30px;
@@ -431,19 +521,16 @@ function render_custom_checkout() {
             color: #075985;
         }
 
-        /* Coupon Section */
         .coupon-section {
             margin-bottom: 20px;
             padding-bottom: 20px;
             border-bottom: 1px solid #eee;
         }
-
         .coupon-input-wrapper {
             display: flex;
             gap: 10px;
             margin-bottom: 10px;
         }
-
         .coupon-input-wrapper input {
             flex: 1;
             padding: 12px;
@@ -451,12 +538,10 @@ function render_custom_checkout() {
             border-radius: 4px;
             font-size: 14px;
         }
-
         .coupon-input-wrapper input:focus {
             outline: none;
             border-color: #2d5016;
         }
-
         .coupon-apply-btn {
             padding: 12px 24px;
             background: #2d5016;
@@ -468,39 +553,32 @@ function render_custom_checkout() {
             transition: background 0.3s;
             white-space: nowrap;
         }
-
         .coupon-apply-btn:hover {
             background: #1f3810;
         }
-
         .coupon-apply-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
         }
-
         .coupon-message {
             padding: 10px;
             border-radius: 4px;
             font-size: 14px;
             margin-top: 10px;
         }
-
         .coupon-message.success {
             background: #e8f5e9;
             color: #2e7d32;
             border-left: 4px solid #4caf50;
         }
-
         .coupon-message.error {
             background: #ffebee;
             color: #c62828;
             border-left: 4px solid #f44336;
         }
-
         .applied-coupons {
             margin-top: 15px;
         }
-
         .coupon-tag {
             display: inline-flex;
             align-items: center;
@@ -514,16 +592,13 @@ function render_custom_checkout() {
             margin-bottom: 8px;
             border: 1px solid #4caf50;
         }
-
         .coupon-tag-code {
             font-weight: 700;
             text-transform: uppercase;
         }
-
         .coupon-tag-discount {
             color: #1b5e20;
         }
-
         .coupon-remove-btn {
             background: none;
             border: none;
@@ -535,18 +610,14 @@ function render_custom_checkout() {
             align-items: center;
             transition: color 0.2s;
         }
-
         .coupon-remove-btn:hover {
             color: #d32f2f;
         }
-
-        /* Available Coupons Section */
         .available-coupons {
             margin-top: 20px;
             padding-top: 20px;
             border-top: 1px solid #eee;
         }
-
         .available-coupons-title {
             font-size: 14px;
             font-weight: 600;
@@ -558,19 +629,15 @@ function render_custom_checkout() {
             cursor: pointer;
             user-select: none;
         }
-
         .available-coupons-title:hover {
             color: #2d5016;
         }
-
         .coupon-toggle-icon {
             transition: transform 0.3s;
         }
-
         .coupon-toggle-icon.open {
             transform: rotate(180deg);
         }
-
         .available-coupons-list {
             display: grid;
             gap: 12px;
@@ -578,21 +645,17 @@ function render_custom_checkout() {
             overflow-y: auto;
             padding-right: 5px;
         }
-
         .available-coupons-list::-webkit-scrollbar {
             width: 6px;
         }
-
         .available-coupons-list::-webkit-scrollbar-track {
             background: #f1f1f1;
             border-radius: 3px;
         }
-
         .available-coupons-list::-webkit-scrollbar-thumb {
             background: #2d5016;
             border-radius: 3px;
         }
-
         .coupon-card {
             background: linear-gradient(135deg, #f0f9ff 0%, #61c3a2 100%);
             border: 2px solid #3B7D3B;
@@ -606,7 +669,6 @@ function render_custom_checkout() {
             position: relative;
             overflow: hidden;
         }
-
         .coupon-card::before {
             content: '';
             position: absolute;
@@ -616,43 +678,35 @@ function render_custom_checkout() {
             height: 100%;
             background: #3B7D3B;
         }
-
         .coupon-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(59, 125, 59, 0.2);
             border-color: #3B7D3B;
         }
-
         .coupon-card.disabled {
             opacity: 0.5;
             cursor: not-allowed;
             background: #f5f5f5;
             border-color: #ddd;
         }
-
         .coupon-card.disabled::before {
             background: #999;
         }
-
         .coupon-card.disabled:hover {
             transform: none;
             box-shadow: none;
         }
-
         .coupon-card.applied {
             background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
             border-color: #4caf50;
         }
-
         .coupon-card.applied::before {
             background: #4caf50;
         }
-
         .coupon-info {
             flex: 1;
             padding-left: 8px;
         }
-
         .coupon-code-display {
             font-size: 16px;
             font-weight: 700;
@@ -661,24 +715,20 @@ function render_custom_checkout() {
             margin-bottom: 4px;
             letter-spacing: 0.5px;
         }
-
         .coupon-card.applied .coupon-code-display {
             color: #2e7d32;
         }
-
         .coupon-description {
             font-size: 13px;
             color: #1e293b;
             margin-bottom: 6px;
             font-weight: 500;
         }
-
         .coupon-details {
             font-size: 11px;
             color: #64748b;
             line-height: 1.4;
         }
-
         .coupon-discount {
             font-size: 18px;
             font-weight: 700;
@@ -686,11 +736,9 @@ function render_custom_checkout() {
             white-space: nowrap;
             margin-right: 12px;
         }
-
         .coupon-card.applied .coupon-discount {
             color: #2e7d32;
         }
-
         .coupon-apply-small-btn {
             padding: 8px 16px;
             background: #3B7D3B;
@@ -703,45 +751,37 @@ function render_custom_checkout() {
             transition: all 0.3s;
             white-space: nowrap;
         }
-
         .coupon-apply-small-btn:hover {
             background: #3B7D3B;
             transform: scale(1.05);
         }
-
         .coupon-apply-small-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
             transform: none;
         }
-
         .coupon-card.applied .coupon-apply-small-btn {
             background: #4caf50;
         }
-
         .no-coupons-message {
             text-align: center;
             padding: 20px;
             color: #666;
             font-size: 14px;
         }
-
         .coupon-conditions {
             margin-top: 4px;
             font-size: 11px;
             color: #ef4444;
         }
-
         .loading-coupons {
             text-align: center;
             padding: 20px;
             color: #666;
         }
-
         .discount-row {
             color: #10b981;
         }
-        /* Delivery Area Validation */
         .delivery-area-error {
             background: #ffebee;
             border-left: 4px solid #f44336;
@@ -750,37 +790,26 @@ function render_custom_checkout() {
             margin-top: 15px;
             display: none;
         }
-
         .delivery-area-error.show {
             display: block;
             animation: slideDown 0.3s ease;
         }
-
         @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
         .delivery-area-error h4 {
             margin: 0 0 10px 0;
             color: #c62828;
             font-size: 16px;
             font-weight: 700;
         }
-
         .delivery-area-error p {
             margin: 5px 0;
             color: #c62828;
             font-size: 14px;
             line-height: 1.6;
         }
-
         .delivery-area-error ul {
             margin: 10px 0;
             padding-left: 25px;
@@ -789,23 +818,20 @@ function render_custom_checkout() {
             grid-template-columns: 1fr 1fr;
             gap: 5px;
         }
-
         .delivery-area-error li {
             margin: 3px 0;
             font-size: 13px;
         }
-
         @media (max-width: 768px) {
             .delivery-area-error ul {
                 grid-template-columns: 1fr;
             }
         }
-										
-		@media (min-width: 922px) {
-			.ast-container {
-				max-width: 1690px !important;
-			}
-		}
+        @media (min-width: 922px) {
+            .ast-container {
+                max-width: 1690px !important;
+            }
+        }
     </style>
 
     <div class="custom-checkout-wrapper">
@@ -813,7 +839,6 @@ function render_custom_checkout() {
             <h1>CHECKOUT</h1>
         </div>
 
-        <!-- Step Indicators -->
         <div class="checkout-steps">
             <div class="step-indicator active" id="step1-indicator">
                 <span class="step-number">1</span>
@@ -831,7 +856,6 @@ function render_custom_checkout() {
                 <div class="checkout-grid">
                     <!-- LEFT COLUMN -->
                     <div>
-                        <!-- Delivery Type -->
                         <div class="checkout-section">
                             <div class="section-title">🚗 Delivery Options</div>
                             <div class="delivery-type">
@@ -852,18 +876,15 @@ function render_custom_checkout() {
                             </div>
                         </div>
 
-                        <!-- Contact Information -->
                         <div class="checkout-section" style="margin-top: 20px;">
                             <div class="section-title">👤 Contact information</div>
                             <p style="color: #666; font-size: 14px; margin-bottom: 15px;">We will use this email to send you details and updates about your order.</p>
-                            
                             <div class="form-group">
                                 <label>Email address <span class="required">*</span></label>
                                 <input type="email" name="email" id="email" required placeholder="your@email.com" value="<?php echo is_user_logged_in() ? esc_attr(wp_get_current_user()->user_email) : ''; ?>">
                             </div>
                         </div>
 
-                        <!-- Shipping Address -->
                         <div class="checkout-section" style="margin-top: 20px;">
                             <div class="section-title">📮 Shipping address</div>
                             <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Enter the address where you want your order delivered.</p>
@@ -884,7 +905,6 @@ function render_custom_checkout() {
                                 <input type="tel" name="phone" id="phone" required value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_phone', true)) : ''; ?>">
                             </div>
 
-                            <!-- Address with Location Button -->
                             <div class="form-group">
                                 <label>Street address <span class="required">*</span></label>
                                 <input type="text" name="address" id="address-autocomplete" required placeholder="Start typing address..." value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_address_1', true)) : ''; ?>">
@@ -895,7 +915,6 @@ function render_custom_checkout() {
                                 </button>
                                 <div id="address-error" class="error-message hidden">Please select an address from suggestions</div>
 
-                                <!-- Delivery Area Warning -->
                                 <div id="delivery-area-warning" class="delivery-area-error">
                                     <h4>⚠️ Out of Delivery Area</h4>
                                     <p>Sorry, we currently only deliver to the following cities in Metro Manila:</p>
@@ -919,13 +938,11 @@ function render_custom_checkout() {
                                 </div>
                             </div>
 
-                            <!-- Branch Suggestions -->
                             <div id="branch-suggestions" class="branch-suggestion hidden">
                                 <h4 style="margin: 0 0 10px 0;">🏢 Nearest Branches:</h4>
                                 <div class="branch-list" id="branch-list"></div>
                             </div>
 
-                            <!-- Branch Selection -->
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                                 <div class="form-group">
                                     <label>Choose branch <span class="required">*</span></label>
@@ -945,7 +962,6 @@ function render_custom_checkout() {
                                 </div>
                             </div>
 
-                            <!-- Delivery Date & Time -->
                             <div class="form-group">
                                 <label id="delivery-date-label">Pick up date <span class="required">*</span></label>
                                 <input type="date" name="delivery_date" id="delivery_date" required min="<?php echo date('Y-m-d'); ?>">
@@ -954,7 +970,6 @@ function render_custom_checkout() {
                             <div class="form-group">
                                 <label id="delivery-time-label" for="delivery_time">Pick up time <span class="required">*</span></label>
                                 <select name="delivery_time" id="delivery_time_select" class="test" required>
-                                    <!-- select time each 15 mins from 07:00 to 23:00 -->
                                     <?php
                                         for ($hour = 7; $hour < 23; $hour++) {
                                             for ($min = 0; $min < 60; $min += 15) {
@@ -970,7 +985,6 @@ function render_custom_checkout() {
                                 </select>
                             </div>
 
-                            <!-- Distance Info -->
                             <div class="delivery-info-box hidden" id="distance-info-box">
                                 <p><strong>🚚 Distance:</strong> <span id="distance-display">0</span> km</p>
                                 <p><strong>💰 Shipping fee:</strong> <span id="shipping-fee-display">₱0</span></p>
@@ -1016,7 +1030,6 @@ function render_custom_checkout() {
                                 <input type="text" name="postcode" id="postcode" required value="<?php echo is_user_logged_in() ? esc_attr(get_user_meta(get_current_user_id(), 'billing_postcode', true)) : ''; ?>">
                             </div>
 
-                            <!-- Delivery Address Fields (Hidden by default for pickup) -->
                             <div id="delivery-address-fields" class="hidden">
                                 <div class="form-group">
                                     <label>Country / Region <span class="required">*</span></label>
@@ -1033,18 +1046,15 @@ function render_custom_checkout() {
                                 </label>
                             </div>
 
-                            <!-- VAT Fields -->
                             <div id="vat-fields" class="hidden">
                                 <div class="form-group">
                                     <label>Company name <span class="required">*</span></label>
                                     <input type="text" name="company" id="company" class="vat-required">
                                 </div>
-
                                 <div class="form-group">
                                     <label>Company address <span class="required">*</span></label>
                                     <input type="text" name="company_address" id="company_address" class="vat-required">
                                 </div>
-
                                 <div class="form-group">
                                     <label>Tax Code <span class="required">*</span></label>
                                     <input type="text" name="tax_code" id="tax_code" class="vat-required" placeholder="e.g., 0123456789">
@@ -1052,7 +1062,6 @@ function render_custom_checkout() {
                             </div>
                         </div>
 
-                        <!-- Order Notes -->
                         <div class="checkout-section" style="margin-top: 20px;">
                             <div class="form-group">
                                 <label>Add a note to your order</label>
@@ -1075,7 +1084,6 @@ function render_custom_checkout() {
                                 <div id="coupon-message" class="coupon-message hidden"></div>
                                 <div id="applied-coupons" class="applied-coupons hidden"></div>
                                 
-                                <!-- Available Coupons List -->
                                 <div class="available-coupons">
                                     <div class="available-coupons-title">
                                         <span>🎟️ Available Coupons</span>
@@ -1086,14 +1094,20 @@ function render_custom_checkout() {
                                 </div>
                             </div>
 
+                            <!-- ========================================
+                                 FIX: ORDER ITEMS - Hiển thị giá đúng
+                                 ======================================== -->
                             <div id="order-items">
                                 <?php
                                 foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
-                                    // var_dump($cart_item); // For debugging purposes
                                     $_product = apply_filters('woocommerce_cart_item_product', $cart_item['data'], $cart_item, $cart_item_key);
                                     $product_id = apply_filters('woocommerce_cart_item_product_id', $cart_item['product_id'], $cart_item, $cart_item_key);
                                     
                                     if ($_product && $_product->exists() && $cart_item['quantity'] > 0) {
+                                        // FIX: Lấy giá đã tính sẵn (bao gồm addons × quantity)
+                                        $item_calc = isset($cart_items_calculated[$cart_item_key]) 
+                                            ? $cart_items_calculated[$cart_item_key] 
+                                            : calculate_cart_item_real_total($cart_item);
                                         ?>
                                         <div class="order-item">
                                             <img src="<?php echo esc_url(wp_get_attachment_image_url($_product->get_image_id(), 'thumbnail')); ?>" alt="<?php echo esc_attr($_product->get_name()); ?>">
@@ -1111,7 +1125,7 @@ function render_custom_checkout() {
                                                     echo '</div>';
                                                 }
                                                 
-                                                // Display Add-ons (Custom Add-ons Plugin)
+                                                // Display Add-ons (prad plugin)
                                                 if (!empty($cart_item['prad_selection']) && !empty($cart_item['prad_selection']['extra_data'])) {
                                                     echo '<div class="order-item-addons">';
                                                     echo '<strong>Add-ons:</strong><br>';
@@ -1121,15 +1135,12 @@ function render_custom_checkout() {
                                                             $field_raw = $addon_data['prad_additional']['field_raw'];
                                                             $addon_name = $addon_data['name'];
                                                             
-                                                            // Get selected values and costs
                                                             $values = isset($field_raw['value']) ? $field_raw['value'] : array();
                                                             $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
                                                             
                                                             if (!empty($values) && is_array($values)) {
-                                                                // Display each selected addon
                                                                 foreach ($values as $index => $value_name) {
                                                                     $cost = isset($costs[$index]) ? floatval($costs[$index]) : 0;
-                                                                    
                                                                     echo '<div class="addon-item">';
                                                                     echo esc_html($value_name);
                                                                     if ($cost > 0) {
@@ -1146,7 +1157,10 @@ function render_custom_checkout() {
                                                 ?>
                                             </div>
                                             <div class="order-item-price">
-                                                ₱<?php echo number_format($cart_item['line_total'] + $cart_item['line_tax'], 2); ?>
+                                                <?php 
+                                                // Hiển thị giá gốc sản phẩm (không cộng add-ons)
+                                                echo '₱' . number_format($cart_item['line_total'] + $cart_item['line_tax'], 2); 
+                                                ?>
                                             </div>
                                         </div>
                                         <?php
@@ -1155,10 +1169,14 @@ function render_custom_checkout() {
                                 ?>
                             </div>
 
+                            <!-- ========================================
+                                 FIX: ORDER SUMMARY - Subtotal đúng
+                                 ======================================== -->
                             <div class="order-summary">
                                 <div class="summary-row">
                                     <span>Subtotal</span>
-                                    <span id="subtotal">₱<?php echo number_format(WC()->cart->get_subtotal(), 2); ?></span>
+                                    <?php // FIX: Dùng $calculated_subtotal thay vì WC()->cart->get_subtotal() ?>
+                                    <span id="subtotal">₱<?php echo number_format($calculated_subtotal, 2); ?></span>
                                 </div>
                                 <div class="summary-row">
                                     <span>Shipping Fee</span>
@@ -1166,7 +1184,7 @@ function render_custom_checkout() {
                                 </div>
                                 <div class="summary-row total">
                                     <span>Total</span>
-                                    <span id="total">₱<?php echo number_format(WC()->cart->get_subtotal(), 2); ?></span>
+                                    <span id="total">₱<?php echo number_format($calculated_subtotal, 2); ?></span>
                                 </div>
                             </div>
 
@@ -1194,7 +1212,6 @@ function render_custom_checkout() {
                         <h3 style="margin: 20px 0 15px 0; color: #2d3748;">Choose Your Payment Method:</h3>
                         
                         <div class="bank-accounts">
-                            <!-- GCash Account -->
                             <div class="bank-card">
                                 <h4>📱 G-Cash</h4>
                                 <p style="margin: 5px 0; color: #666;">Account Name: <strong>ANATALIO JR FRANCISCO</strong></p>
@@ -1204,13 +1221,11 @@ function render_custom_checkout() {
                                     <img src="https://so-mot.com/wp-content/uploads/2026/03/gcash-ANATALIO-JR-FRANCISCO.jpg" alt="GCash QR Code">
                                 </div>
                             </div>
-                            <!-- BDO Account -->
                             <div class="bank-card">
                                 <h4>🏦 BPI</h4>
                                 <p style="margin: 5px 0; color: #666;">Account Name: <strong>KEYSTONE VENTURE NETWORK CORPORATION</strong></p>
                                 <div class="account-number">0251000611</div>
                             </div>
-
                             <div class="bank-VNL-card">
                                 <h4>📱 TP Bank</h4>
                                 <p style="margin: 5px 0; color: #666;">Account Name: <strong>TRAN THI HOA</strong></p>
@@ -1220,14 +1235,21 @@ function render_custom_checkout() {
                                     <img src="https://so-mot.com/wp-content/uploads/2026/03/tpbank-c-Hoa.jpg" alt="TP Bank QR Code">
                                 </div>
                             </div>
-                            
+                            <div class="bank-VNL-card">
+                                <h4>🏦 BDO</h4>
+                                <p style="margin: 5px 0; color: #666;">Account Name: <strong>Kha V Ngo</strong></p>
+                                <div class="account-number">007540182560</div>
+                                <div class="qr-code" style="text-align: center;">
+                                    <p style="font-size: 12px; margin: 10px 0 5px 0;">Scan QR Code:</p>
+                                    <img src="https://so-mot.com/wp-content/uploads/2026/03/Kha-V-Ngo-BDO.jpg" alt="BDO QR Code">
+                                </div>
+                            </div>
                         </div>
 
                         <div style="margin-top: 30px;">
                             <h4 style="margin: 0 0 15px 0; color: #2d3748;">📸 Upload Payment Proof</h4>
                             <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Please upload your payment screenshot or receipt to confirm your order</p>
                             
-                            <!-- File Upload Area -->
                             <div id="file-upload-area" class="file-upload-area">
                                 <p style="margin: 0 0 10px 0; font-size: 32px;">📁</p>
                                 <p style="margin: 0 0 5px 0; font-weight: 600;">Drag & Drop your file here</p>
@@ -1236,7 +1258,6 @@ function render_custom_checkout() {
                             
                             <input type="file" id="payment-proof-file" accept=".png,.jpg,.jpeg,.pdf" style="display: none;">
                             
-                            <!-- File Preview -->
                             <div id="file-preview" class="file-preview hidden">
                                 <p style="margin: 0 0 10px 0;">
                                     <strong>✅ File selected:</strong><br>
@@ -1284,10 +1305,8 @@ function render_custom_checkout() {
         let orderData = {};
         let appliedCoupons = [];
         let totalDiscount = 0;
-
         let availableCouponsData = [];
 
-        // Delivery Area Validation
         const ALLOWED_CITIES = [
             'PASAY', 'PARANAQUE', 'PARAÑAQUE', 'MAKATI', 'MANILA',
             'MANDALUYONG', 'TAGUIG', 'PASIG', 'SAN JUAN', 'MALABON',
@@ -1295,7 +1314,6 @@ function render_custom_checkout() {
             'VALENZUELA', 'CALOOCAN'
         ];
 
-        // Function to validate delivery area
         function validateDeliveryArea(placeResult, deliveryType) {
             if (deliveryType !== 'delivery') {
                 $('#delivery-area-warning').removeClass('show');
@@ -1351,7 +1369,6 @@ function render_custom_checkout() {
 
         loadAvailableCoupons();
 
-        // Load available coupons
         function loadAvailableCoupons() {
             $.ajax({
                 url: '<?php echo admin_url('admin-ajax.php'); ?>',
@@ -1374,7 +1391,6 @@ function render_custom_checkout() {
             });
         }
 
-        // Apply Coupon - COMPLETE FIXED VERSION
         $('#apply-coupon-btn').click(function() {
             const couponCode = $('#coupon-code-input').val().trim().toUpperCase();
             
@@ -1383,7 +1399,6 @@ function render_custom_checkout() {
                 return;
             }
             
-            // Check if coupon already applied
             if (appliedCoupons.some(c => c.code === couponCode)) {
                 showCouponMessage('This coupon has already been applied', 'error');
                 return;
@@ -1401,7 +1416,6 @@ function render_custom_checkout() {
                 },
                 success: function(response) {
                     if (response.success) {
-                        // ✅ Safely parse discount amount
                         let discountAmount = 0;
                         if (response.data && response.data.discount_amount !== undefined) {
                             discountAmount = parseFloat(response.data.discount_amount);
@@ -1410,7 +1424,6 @@ function render_custom_checkout() {
                             }
                         }
                         
-                        // Check individual use restriction
                         const hasIndividualUseCoupon = appliedCoupons.some(c => c.individual_use === true);
                         
                         if (hasIndividualUseCoupon) {
@@ -1426,7 +1439,6 @@ function render_custom_checkout() {
                             return;
                         }
                         
-                        // Add coupon to applied list
                         appliedCoupons.push({
                             code: couponCode,
                             discount: discountAmount,
@@ -1435,7 +1447,6 @@ function render_custom_checkout() {
                             individual_use: isIndividualUse
                         });
                         
-                        // Update UI
                         updateAppliedCouponsUI();
                         updateOrderTotalWithCoupons();
                         
@@ -1449,20 +1460,13 @@ function render_custom_checkout() {
                     $('#apply-coupon-btn').prop('disabled', false).text('Apply');
                 },
                 error: function(xhr, status, error) {
-                    console.error('AJAX Error:', {
-                        status: status,
-                        error: error,
-                        response: xhr.responseText
-                    });
+                    console.error('AJAX Error:', {status: status, error: error, response: xhr.responseText});
                     showCouponMessage('Error validating coupon. Please try again.', 'error');
                     $('#apply-coupon-btn').prop('disabled', false).text('Apply');
                 }
             });
         });
 
-        
-        
-        // Enter key to apply coupon
         $('#coupon-code-input').keypress(function(e) {
             if (e.which === 13) {
                 e.preventDefault();
@@ -1470,18 +1474,13 @@ function render_custom_checkout() {
             }
         });
 
-        // Show coupon message
         function showCouponMessage(message, type) {
             const $message = $('#coupon-message');
             $message.removeClass('success error').addClass(type);
             $message.text(message).removeClass('hidden');
-            
-            setTimeout(function() {
-                $message.addClass('hidden');
-            }, 5000);
+            setTimeout(function() { $message.addClass('hidden'); }, 5000);
         }
 
-        // Render available coupons
         function renderAvailableCoupons() {
             const $list = $('#available-coupons-list');
             
@@ -1492,8 +1491,6 @@ function render_custom_checkout() {
             
             const cartTotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
             let html = '';
-
-            console.log('availableCouponsData', availableCouponsData);
             
             availableCouponsData.forEach(function(coupon) {
                 const isApplied = appliedCoupons.some(c => c.code === coupon.code);
@@ -1530,15 +1527,12 @@ function render_custom_checkout() {
             $list.html(html);
         }
 
-        // Apply coupon from list
         window.applyCouponFromList = function(code) {
-            // Check if already applied
             if (appliedCoupons.some(c => c.code === code)) {
                 showCouponMessage('This coupon is already applied', 'error');
                 return;
             }
             
-            // Check if disabled
             const cartTotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
             const couponData = availableCouponsData.find(c => c.code === code);
             
@@ -1547,26 +1541,22 @@ function render_custom_checkout() {
                 return;
             }
             
-            // Set coupon code and apply
             $('#coupon-code-input').val(code);
             $('#apply-coupon-btn').click();
         };
 
-        // Update renderAvailableCoupons when coupons change
-        // Thêm vào function updateAppliedCouponsUI
         function updateAppliedCouponsUI() {
             const $container = $('#applied-coupons');
             
             if (appliedCoupons.length === 0) {
                 $container.addClass('hidden');
-                renderAvailableCoupons(); // Update available coupons list
+                renderAvailableCoupons();
                 return;
             }
             
             let html = '<div style="margin-bottom: 10px; font-weight: 600; font-size: 14px;">Applied Coupons:</div>';
             
             appliedCoupons.forEach(function(coupon) {
-                console.log('coupon', coupon);
                 html += '<div class="coupon-tag">' +
                     '<span class="coupon-tag-code">' + coupon.code + '</span>' +
                     '<span class="coupon-tag-discount">-₱' + parseFloat(coupon.discount).toFixed(2) + '</span>' +
@@ -1575,10 +1565,9 @@ function render_custom_checkout() {
             });
             
             $container.html(html).removeClass('hidden');
-            renderAvailableCoupons(); // Update available coupons list
+            renderAvailableCoupons();
         }
 
-        // Update removeCoupon function
         window.removeCoupon = function(code) {
             appliedCoupons = appliedCoupons.filter(c => c.code !== code);
             updateAppliedCouponsUI();
@@ -1586,18 +1575,14 @@ function render_custom_checkout() {
             showCouponMessage('Coupon removed', 'success');
         };
 
-        // Update order total with coupons
         function updateOrderTotalWithCoupons() {
             const subtotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
             const shippingFee = calculatedShippingFee;
             
-            // Calculate total discount
             totalDiscount = appliedCoupons.reduce((sum, coupon) => sum + parseFloat(coupon.discount), 0);
             
-            // Calculate final total
             const total = Math.max(0, subtotal - totalDiscount + shippingFee);
             
-            // Update discount row in summary
             const $summaryContainer = $('.order-summary');
             $summaryContainer.find('.discount-row').remove();
             
@@ -1610,21 +1595,16 @@ function render_custom_checkout() {
                 $summaryContainer.find('.summary-row:last').before(discountRowHtml);
             }
             
-            // Update total
             $('#total').text('₱' + total.toLocaleString('en-US', {minimumFractionDigits: 2}));
         }
         
         const branches = <?php echo json_encode($branches); ?>;
 
-        // Function to generate time options based on branch hours
         function updateTimeOptions(startTime, endTime) {
             const $timeSelect = $('#delivery_time_select');
             const currentValue = $timeSelect.val();
             
-            if (!startTime || !endTime) {
-                startTime = '07:00';
-                endTime = '23:00';
-            }
+            if (!startTime || !endTime) { startTime = '07:00'; endTime = '23:00'; }
             
             const [startHour, startMin] = startTime.split(':').map(Number);
             const [endHour, endMin] = endTime.split(':').map(Number);
@@ -1643,10 +1623,7 @@ function render_custom_checkout() {
                 $timeSelect.append('<option value="' + time24 + '">' + time12 + '</option>');
                 
                 currentMin += 15;
-                if (currentMin >= 60) {
-                    currentMin = 0;
-                    currentHour++;
-                }
+                if (currentMin >= 60) { currentMin = 0; currentHour++; }
             }
             
             if (currentValue && $timeSelect.find('option[value="' + currentValue + '"]').length > 0) {
@@ -1655,17 +1632,7 @@ function render_custom_checkout() {
                 $timeSelect.val($timeSelect.find('option:first').val());
             }
         }
-
-        // Helper function for sprintf
-        function sprintf(format, ...args) {
-            let i = 0;
-            return format.replace(/%(\d*)d/g, (match, width) => {
-                const num = args[i++];
-                return width ? String(num).padStart(parseInt(width), '0') : String(num);
-            });
-        }
         
-        // Initialize Google Maps Autocomplete
         function initAutocomplete() {
             const destinationInput = document.getElementById('address-autocomplete');
             
@@ -1690,13 +1657,11 @@ function render_custom_checkout() {
                     $('#address_lat').val(lat);
                     $('#address_lng').val(lng);
                     
-                    // Validate delivery area
                     const deliveryType = $('input[name="delivery_type"]:checked').val();
                     const isValidArea = validateDeliveryArea(selectedPlace, deliveryType);
                     
                     if (isValidArea) {
                         showNearestBranches(lat, lng);
-                        
                         if (deliveryType === 'delivery') {
                             calculateDistance(lat, lng);
                         }
@@ -1705,7 +1670,6 @@ function render_custom_checkout() {
             }
         }
         
-        // Get user location
         $('#get-location-btn').click(function() {
             if (navigator.geolocation) {
                 $(this).prop('disabled', true).text('Getting location...');
@@ -1717,7 +1681,6 @@ function render_custom_checkout() {
                     $('#address_lat').val(lat);
                     $('#address_lng').val(lng);
                     
-                    // Reverse geocode
                     const geocoder = new google.maps.Geocoder();
                     geocoder.geocode({location: {lat: lat, lng: lng}}, function(results, status) {
                         if (status === 'OK' && results[0]) {
@@ -1729,7 +1692,6 @@ function render_custom_checkout() {
                             
                             if (isValidArea) {
                                 showNearestBranches(lat, lng);
-                                
                                 if (deliveryType === 'delivery') {
                                     calculateDistance(lat, lng);
                                 }
@@ -1746,14 +1708,10 @@ function render_custom_checkout() {
             }
         });
         
-        // Show nearest branches
         function showNearestBranches(lat, lng) {
             const distances = branches.map(branch => {
                 const distance = calculateDistanceKm(lat, lng, branch.lat, branch.lng);
-                return {
-                    ...branch,
-                    distance: distance
-                };
+                return { ...branch, distance: distance };
             }).sort((a, b) => a.distance - b.distance);
             
             let html = '';
@@ -1768,31 +1726,24 @@ function render_custom_checkout() {
             $('#branch-suggestions').removeClass('hidden');
         }
         
-        // Calculate distance between two points
         function calculateDistanceKm(lat1, lng1, lat2, lng2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
             const dLon = (lng2 - lng1) * Math.PI / 180;
-            
             const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             return R * c;
         }
         
-        // Calculate distance for delivery
         function calculateDistance(destLat, destLng) {
             const distance = calculateDistanceKm(branchLocation.lat, branchLocation.lng, destLat, destLng);
-            
             $('#distance-display').text(distance.toFixed(2));
             $('#distance-info-box').removeClass('hidden');
-            
             getShippingFee(distance);
         }
         
-        // Get shipping fee
         function getShippingFee(distance) {
             const deliveryTime = $('#delivery_time_select').val();
             const deliveryDate = $('#delivery_date').val();
@@ -1820,18 +1771,13 @@ function render_custom_checkout() {
             });
         }
         
-        // Update order total
         function updateOrderTotal() {
             calculatedShippingFee = calculatedShippingFee || 0;
-            
             $('#shipping-fee').text('₱' + calculatedShippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
             $('#shipping-fee-display').text('₱' + calculatedShippingFee.toLocaleString('en-US', {minimumFractionDigits: 2}));
-            
-            // Use the function that includes coupons
             updateOrderTotalWithCoupons();
         }
         
-        // Delivery type change
         $('input[name="delivery_type"]').change(function() {
             const deliveryType = $(this).val();
             
@@ -1853,7 +1799,6 @@ function render_custom_checkout() {
                 
                 if ($('#address_lat').val() && $('#address_lng').val() && selectedPlace) {
                     const isValidArea = validateDeliveryArea(selectedPlace, 'delivery');
-                    
                     if (isValidArea) {
                         calculateDistance(
                             parseFloat($('#address_lat').val()),
@@ -1864,13 +1809,11 @@ function render_custom_checkout() {
             }
         });
         
-        // Branch selection change
         $('#branch-select').change(function() {
             const selectedOption = $(this).find('option:selected');
             branchLocation.lat = parseFloat(selectedOption.data('lat'));
             branchLocation.lng = parseFloat(selectedOption.data('lng'));
             
-            // Update time options based on branch hours
             const startTime = selectedOption.data('start-time');
             const endTime = selectedOption.data('end-time');
             updateTimeOptions(startTime, endTime);
@@ -1883,7 +1826,6 @@ function render_custom_checkout() {
             }
         });
         
-        // VAT checkbox
         $('#need_vat').change(function() {
             if ($(this).is(':checked')) {
                 $('#vat-fields').removeClass('hidden');
@@ -1896,7 +1838,6 @@ function render_custom_checkout() {
         
         // Proceed to payment
         $('#proceed-to-payment-btn').click(function() {
-            // Validate form
             const form = $('#checkout-step1-form')[0];
             if (!form.checkValidity()) {
                 form.reportValidity();
@@ -1916,35 +1857,26 @@ function render_custom_checkout() {
                     return;
                 }
 
-                // Validate delivery area
                 if (selectedPlace) {
                     const isValidArea = validateDeliveryArea(selectedPlace, 'delivery');
                     if (!isValidArea) {
                         alert('Sorry, we only deliver to Metro Manila cities listed. Please select a valid delivery address or choose Pickup option.');
-                        window.scrollTo({
-                            top: $('#delivery-area-warning').offset().top - 100,
-                            behavior: 'smooth'
-                        });
+                        window.scrollTo({ top: $('#delivery-area-warning').offset().top - 100, behavior: 'smooth' });
                         return;
                     }
                 } else {
-                    // Fallback validation
                     const address = $('#address-autocomplete').val().toUpperCase();
                     const isInMetroManila = ALLOWED_CITIES.some(city => address.includes(city));
                     
                     if (!isInMetroManila) {
                         alert('Sorry, we only deliver to Metro Manila cities listed. Please select a valid delivery address or choose Pickup option.');
                         $('#delivery-area-warning').addClass('show');
-                        window.scrollTo({
-                            top: $('#delivery-area-warning').offset().top - 100,
-                            behavior: 'smooth'
-                        });
+                        window.scrollTo({ top: $('#delivery-area-warning').offset().top - 100, behavior: 'smooth' });
                         return;
                     }
                 }
             }
             
-            // Store order data
             orderData = {
                 delivery_type: deliveryType,
                 delivery_date: $('#delivery_date').val(),
@@ -1970,21 +1902,17 @@ function render_custom_checkout() {
                 shipping_fee: calculatedShippingFee
             };
             
-            // Switch to step 2
             $('#step1-content').addClass('hidden');
             $('#step2-content').removeClass('hidden');
             $('#step1-indicator').removeClass('active');
             $('#step2-indicator').addClass('active');
             
-            // Update payment total
             const subtotal = parseFloat($('#subtotal').text().replace('₱', '').replace(',', ''));
             const total = subtotal - totalDiscount + calculatedShippingFee;
             $('#payment-total').text(total.toLocaleString('en-US', {minimumFractionDigits: 2}));
             
-            // Copy order summary
             $('#order-summary-step2').html($('#order-items').html() + $('.order-summary').prop('outerHTML'));
             
-            // Scroll to top
             window.scrollTo(0, 0);
         });
         
@@ -2010,7 +1938,6 @@ function render_custom_checkout() {
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
-            
             if (e.dataTransfer.files.length > 0) {
                 handleFileSelect(e.dataTransfer.files[0]);
             }
@@ -2078,12 +2005,10 @@ function render_custom_checkout() {
             formData.append('action', 'process_complete_checkout');
             formData.append('payment_file', selectedFile);
             
-            // Add order data
             Object.keys(orderData).forEach(key => {
                 formData.append(key, orderData[key]);
             });
 
-            // Add coupon data
             if (appliedCoupons.length > 0) {
                 formData.append('applied_coupons', JSON.stringify(appliedCoupons));
             }
@@ -2109,7 +2034,6 @@ function render_custom_checkout() {
             });
         });
         
-        // Back to step 1
         window.backToStep1 = function() {
             $('#step2-content').addClass('hidden');
             $('#step1-content').removeClass('hidden');
@@ -2125,47 +2049,35 @@ function render_custom_checkout() {
             setTimeout(initAutocomplete, 1000);
         }
 
-        // Initialize time options with default (first branch or no selection)
         const firstBranch = $('#branch-select option:selected');
         if (firstBranch.val()) {
-            updateTimeOptions(
-                firstBranch.data('start-time'),
-                firstBranch.data('end-time')
-            );
+            updateTimeOptions(firstBranch.data('start-time'), firstBranch.data('end-time'));
         } else {
-            // Default time range if no branch selected
             updateTimeOptions('07:00', '23:00');
         }
-		// ========================================
-        // TỰ ĐỘNG ÁP DỤNG MÃ TỪ SLIDER (AUTO-APPLY)
-        // ========================================
+
+        // Auto-apply coupon from URL
         const urlParams = new URLSearchParams(window.location.search);
         const autoCoupon = urlParams.get('apply_coupon');
 
         if (autoCoupon) {
-            // Đợi toàn bộ trang và các script khác (như loadAvailableCoupons) tải xong
             $(window).on('load', function() {
                 setTimeout(function() {
                     const $couponInput = $('#coupon-code-input');
                     const $applyBtn = $('#apply-coupon-btn');
                     
                     if ($couponInput.length && $applyBtn.length) {
-                        // 1. Điền mã vào ô
                         $couponInput.val(autoCoupon);
-                        
-                        // 2. Kích hoạt sự kiện nhấn nút Apply hiện có của trang
                         $applyBtn.trigger('click');
                         
-                        // 3. Xóa tham số trên URL để khách F5 không bị áp dụng lại từ đầu
                         const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                         window.history.replaceState({path:newUrl}, '', newUrl);
                         
-                        // 4. Cuộn nhẹ xuống phần Coupon để khách thấy thông báo thành công
                         $('html, body').animate({
                             scrollTop: $(".coupon-section").offset().top - 100
                         }, 500);
                     }
-                }, 1500); // Độ trễ 1.5s để đảm bảo các logic phí ship/chi nhánh đã ổn định
+                }, 1500);
             });
         }
     });
@@ -2173,29 +2085,29 @@ function render_custom_checkout() {
     <?php
 }
 
-// AJAX handler for processing complete checkout with payment proof
+// ========================================
+// AJAX: Process Complete Checkout (FIXED)
+// ========================================
 add_action('wp_ajax_process_complete_checkout', 'process_complete_checkout');
 add_action('wp_ajax_nopriv_process_complete_checkout', 'process_complete_checkout');
 function process_complete_checkout() {
     try {
-        // Create order
         $order = wc_create_order();
         
-        // Add products
         foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
             $product_id = $cart_item['data']->get_id();
             $quantity = $cart_item['quantity'];
             
-            // Add product to order
             $item_id = $order->add_product($cart_item['data'], $quantity);
-            
-            // Get the order item object
             $order_item = $order->get_item($item_id);
             
-            // Calculate total addon price
-            $total_addon_price = 0;
+            // ========================================
+            // FIX: Tính giá add-ons chính xác bằng helper
+            // ========================================
+            $item_calc = calculate_cart_item_real_total($cart_item);
+            $addon_total_for_line = $item_calc['addon_total_for_line'];
             
-            // Add add-ons meta to order item if exists
+            // Save custom_addons meta
             if (!empty($cart_item['custom_addons'])) {
                 foreach ($cart_item['custom_addons'] as $addon) {
                     $addon_label = isset($addon['optionLabel']) ? $addon['optionLabel'] : (isset($addon['label']) ? $addon['label'] : '');
@@ -2203,62 +2115,33 @@ function process_complete_checkout() {
                     $addon_price = isset($addon['price']) ? floatval($addon['price']) : 0;
                     $addon_qty = isset($addon['qty']) ? intval($addon['qty']) : 1;
                     
-                    // Store addon as order item meta
                     if ($addon_label) {
                         wc_add_order_item_meta($item_id, $addon_group, $addon_label);
-                        
-                        // If addon has price, add it
                         if ($addon_price > 0) {
                             wc_add_order_item_meta($item_id, '_addon_' . sanitize_title($addon_label) . '_price', $addon_price);
-                            
-                            // Add to total addon price
-                            $total_addon_price += ($addon_price * $addon_qty);
                         }
-                        
-                        // Store quantity if more than 1
                         if ($addon_qty > 1) {
                             wc_add_order_item_meta($item_id, '_addon_' . sanitize_title($addon_label) . '_qty', $addon_qty);
                         }
                     }
                 }
-                
-                // Update line item total to include addon prices
-                if ($total_addon_price > 0 && $order_item) {
-                    $original_subtotal = $order_item->get_subtotal();
-                    $original_total = $order_item->get_total();
-                    
-                    // Add addon price to subtotal and total
-                    $order_item->set_subtotal($original_subtotal + $total_addon_price);
-                    $order_item->set_total($original_total + $total_addon_price);
-                    
-                    // Save the item
-                    $order_item->save();
-                }
             }
 
+            // Save prad_selection meta
             if (!empty($cart_item['prad_selection'])) {
-                // Get total addon price from prad_selection
-                $prad_addon_price = isset($cart_item['prad_selection']['price']) ? floatval($cart_item['prad_selection']['price']) : 0;
-                
-                // Save detailed addon information
                 if (!empty($cart_item['prad_selection']['extra_data'])) {
                     foreach ($cart_item['prad_selection']['extra_data'] as $addon_data) {
                         if (isset($addon_data['name']) && isset($addon_data['prad_additional']['field_raw'])) {
                             $field_raw = $addon_data['prad_additional']['field_raw'];
                             $addon_name = $addon_data['name'];
                             
-                            // Get selected values and costs
                             $values = isset($field_raw['value']) ? $field_raw['value'] : array();
                             $costs = isset($field_raw['cost']) ? $field_raw['cost'] : array();
                             
                             if (!empty($values) && is_array($values)) {
-                                // Save each selected addon
                                 foreach ($values as $index => $value_name) {
                                     $cost = isset($costs[$index]) ? floatval($costs[$index]) : 0;
-                                    
-                                    // Save addon as order item meta
                                     wc_add_order_item_meta($item_id, $addon_name, $value_name);
-                                    
                                     if ($cost > 0) {
                                         wc_add_order_item_meta($item_id, '_addon_' . sanitize_title($value_name) . '_price', $cost);
                                     }
@@ -2267,19 +2150,19 @@ function process_complete_checkout() {
                         }
                     }
                 }
+            }
+            
+            // ========================================
+            // FIX: Cập nhật line item total bao gồm add-ons
+            // Chỉ cần cộng 1 lần duy nhất từ helper
+            // ========================================
+            if ($addon_total_for_line > 0 && $order_item) {
+                $original_subtotal = $order_item->get_subtotal();
+                $original_total = $order_item->get_total();
                 
-                // Update line item total to include addon prices
-                if ($prad_addon_price > 0 && $order_item) {
-                    $original_subtotal = $order_item->get_subtotal();
-                    $original_total = $order_item->get_total();
-                    
-                    // Add addon price to subtotal and total
-                    $order_item->set_subtotal($original_subtotal + $prad_addon_price);
-                    $order_item->set_total($original_total + $prad_addon_price);
-                    
-                    // Save the item
-                    $order_item->save();
-                }
+                $order_item->set_subtotal($original_subtotal + $addon_total_for_line);
+                $order_item->set_total($original_total + $addon_total_for_line);
+                $order_item->save();
             }
         }
         
@@ -2318,10 +2201,10 @@ function process_complete_checkout() {
             }
         }
         
-        // IMPORTANT: Calculate totals BEFORE applying coupons
+        // Calculate totals BEFORE applying coupons
         $order->calculate_totals();
         
-        // Apply coupons if any
+        // Apply coupons
         if (!empty($_POST['applied_coupons'])) {
             $coupons = json_decode(stripslashes($_POST['applied_coupons']), true);
             
@@ -2330,7 +2213,6 @@ function process_complete_checkout() {
                 $coupon = new WC_Coupon($coupon_code);
                 
                 if ($coupon->is_valid()) {
-                    // Create coupon line item
                     $coupon_item = new WC_Order_Item_Coupon();
                     $coupon_item->set_props(array(
                         'code' => $coupon_code,
@@ -2338,13 +2220,8 @@ function process_complete_checkout() {
                         'discount_tax' => 0,
                     ));
                     
-                    // Add coupon to order
                     $order->add_item($coupon_item);
-                    
-                    // Update coupon usage count
                     $coupon->increase_usage_count();
-                    
-                    // Add order note
                     $order->add_order_note(sprintf('Coupon "%s" applied. Discount: ₱%s', $coupon_code, number_format($coupon_data['discount'], 2)));
                 }
             }
@@ -2395,25 +2272,22 @@ function process_complete_checkout() {
             }
         }
         
-        // IMPORTANT: Recalculate totals after applying coupons
+        // Recalculate totals after applying coupons
         $order->calculate_totals();
         $order->save();
         
-        // Create customer account or associate with existing user
+        // Create customer account or associate
         $email = sanitize_email($_POST['email']);
         $phone = sanitize_text_field($_POST['phone']);
         $first_name = sanitize_text_field($_POST['first_name']);
         $last_name = sanitize_text_field($_POST['last_name']);
         
         if (is_user_logged_in()) {
-            // User is already logged in, associate order with current user
             $user_id = get_current_user_id();
             $order->set_customer_id($user_id);
             $order->save();
         } elseif (!email_exists($email) && !username_exists($email)) {
-            // Create new account for guest user
             $random_password = wp_generate_password(12, false);
-            
             $user_id = wp_create_user($email, $random_password, $email);
             
             if (!is_wp_error($user_id)) {
@@ -2433,7 +2307,6 @@ function process_complete_checkout() {
                 update_user_meta($user_id, 'billing_postcode', sanitize_text_field($_POST['postcode']));
                 update_user_meta($user_id, 'billing_country', sanitize_text_field($_POST['country']));
                 
-                // Send password email
                 wp_mail(
                     $email,
                     'Your Account Has Been Created - Somot',
@@ -2441,12 +2314,10 @@ function process_complete_checkout() {
                     array('Content-Type: text/plain; charset=UTF-8')
                 );
                 
-                // Associate order with customer
                 $order->set_customer_id($user_id);
                 $order->save();
             }
         } else {
-            // Email already exists, associate order with existing user
             $existing_user = get_user_by('email', $email);
             if ($existing_user) {
                 $order->set_customer_id($existing_user->ID);
@@ -2454,7 +2325,6 @@ function process_complete_checkout() {
             }
         }
         
-        // Empty cart
         WC()->cart->empty_cart();
         
         wp_send_json_success(array(
@@ -2468,7 +2338,9 @@ function process_complete_checkout() {
     }
 }
 
+// ========================================
 // Display custom checkout info in admin
+// ========================================
 add_action('woocommerce_admin_order_data_after_billing_address', 'display_custom_checkout_info_in_admin');
 function display_custom_checkout_info_in_admin($order) {
     $delivery_type = $order->get_meta('_delivery_type');
@@ -2482,29 +2354,12 @@ function display_custom_checkout_info_in_admin($order) {
     echo '<div class="custom-checkout-info" style="padding: 15px; background: #f0f9ff; margin-top: 15px; border-radius: 4px;">';
     echo '<h3 style="margin-top: 0;">🚚 Delivery Information</h3>';
     
-    if ($delivery_type) {
-        echo '<p><strong>Type:</strong> ' . esc_html(ucfirst($delivery_type)) . '</p>';
-    }
-    
-    if ($delivery_date) {
-        echo '<p><strong>Date:</strong> ' . esc_html($delivery_date) . '</p>';
-    }
-    
-    if ($delivery_time) {
-        echo '<p><strong>Time:</strong> ' . esc_html($delivery_time) . '</p>';
-    }
-    
-    if ($branch) {
-        echo '<p><strong>Branch:</strong> ' . esc_html($branch) . '</p>';
-    }
-    
-    if ($lat && $lng) {
-        echo '<p><strong>Location:</strong> <a href="https://www.google.com/maps?q=' . $lat . ',' . $lng . '" target="_blank">View on Google Maps</a></p>';
-    }
-    
-    if ($payment_proof) {
-        echo '<p><strong>Payment Proof:</strong> <a href="' . esc_url($payment_proof) . '" target="_blank">View File</a></p>';
-    }
+    if ($delivery_type) echo '<p><strong>Type:</strong> ' . esc_html(ucfirst($delivery_type)) . '</p>';
+    if ($delivery_date) echo '<p><strong>Date:</strong> ' . esc_html($delivery_date) . '</p>';
+    if ($delivery_time) echo '<p><strong>Time:</strong> ' . esc_html($delivery_time) . '</p>';
+    if ($branch) echo '<p><strong>Branch:</strong> ' . esc_html($branch) . '</p>';
+    if ($lat && $lng) echo '<p><strong>Location:</strong> <a href="https://www.google.com/maps?q=' . $lat . ',' . $lng . '" target="_blank">View on Google Maps</a></p>';
+    if ($payment_proof) echo '<p><strong>Payment Proof:</strong> <a href="' . esc_url($payment_proof) . '" target="_blank">View File</a></p>';
     
     echo '</div>';
     
@@ -2516,19 +2371,9 @@ function display_custom_checkout_info_in_admin($order) {
         
         echo '<div class="vat-invoice-info" style="padding: 15px; background: #fff7ed; margin-top: 15px; border-radius: 4px; border-left: 4px solid #f59e0b;">';
         echo '<h3 style="margin-top: 0;">🧾 VAT Invoice Required</h3>';
-        
-        if ($vat_company) {
-            echo '<p><strong>Company Name:</strong> ' . esc_html($vat_company) . '</p>';
-        }
-        
-        if ($vat_address) {
-            echo '<p><strong>Company Address:</strong> ' . esc_html($vat_address) . '</p>';
-        }
-        
-        if ($vat_tax_code) {
-            echo '<p><strong>Tax Code:</strong> ' . esc_html($vat_tax_code) . '</p>';
-        }
-        
+        if ($vat_company) echo '<p><strong>Company Name:</strong> ' . esc_html($vat_company) . '</p>';
+        if ($vat_address) echo '<p><strong>Company Address:</strong> ' . esc_html($vat_address) . '</p>';
+        if ($vat_tax_code) echo '<p><strong>Tax Code:</strong> ' . esc_html($vat_tax_code) . '</p>';
         echo '</div>';
     }
 }
@@ -2536,53 +2381,38 @@ function display_custom_checkout_info_in_admin($order) {
 // Add custom content to order emails
 add_action('woocommerce_email_before_order_table', 'add_custom_content_to_order_email', 20, 4);
 function add_custom_content_to_order_email($order, $sent_to_admin, $plain_text, $email) {
-    if ($sent_to_admin) {
-        return;
-    }
+    if ($sent_to_admin) return;
     
     $delivery_type = $order->get_meta('_delivery_type');
     $delivery_date = $order->get_meta('_delivery_date');
     $delivery_time = $order->get_meta('_delivery_time');
     $branch = $order->get_meta('_selected_branch');
-    $need_vat = $order->get_meta('_need_vat_invoice');
     
     if ($plain_text) {
         echo "\n========================================\n";
         echo "DELIVERY INFORMATION\n";
         echo "========================================\n\n";
-        
         if ($delivery_type) echo "Delivery Type: " . ucfirst($delivery_type) . "\n";
         if ($delivery_date) echo "Delivery Date: " . $delivery_date . "\n";
         if ($delivery_time) echo "Delivery Time: " . $delivery_time . "\n";
         if ($branch) echo "Branch: " . ucfirst($branch) . "\n";
-        
         echo "\n";
     } else {
         ?>
         <div style="margin-bottom: 40px; padding: 20px; background-color: #f7fafc; border-radius: 8px;">
             <h2 style="color: #2d3748; margin-top: 0;">🚚 Delivery Information</h2>
-            
-            <?php if ($delivery_type): ?>
-                <p><strong>Type:</strong> <?php echo esc_html(ucfirst($delivery_type)); ?></p>
-            <?php endif; ?>
-            
-            <?php if ($delivery_date): ?>
-                <p><strong>Date:</strong> <?php echo esc_html($delivery_date); ?></p>
-            <?php endif; ?>
-            
-            <?php if ($delivery_time): ?>
-                <p><strong>Time:</strong> <?php echo esc_html($delivery_time); ?></p>
-            <?php endif; ?>
-            
-            <?php if ($branch): ?>
-                <p><strong>Branch:</strong> <?php echo esc_html(ucfirst($branch)); ?></p>
-            <?php endif; ?>
+            <?php if ($delivery_type): ?><p><strong>Type:</strong> <?php echo esc_html(ucfirst($delivery_type)); ?></p><?php endif; ?>
+            <?php if ($delivery_date): ?><p><strong>Date:</strong> <?php echo esc_html($delivery_date); ?></p><?php endif; ?>
+            <?php if ($delivery_time): ?><p><strong>Time:</strong> <?php echo esc_html($delivery_time); ?></p><?php endif; ?>
+            <?php if ($branch): ?><p><strong>Branch:</strong> <?php echo esc_html(ucfirst($branch)); ?></p><?php endif; ?>
         </div>
         <?php
     }
 }
 
-// AJAX: Validate and Apply Coupon - COMPLETE WITH GLOBAL & INDIVIDUAL MIN/MAX
+// ========================================
+// AJAX: Validate and Apply Coupon (FIXED)
+// ========================================
 add_action('wp_ajax_validate_and_apply_coupon', 'validate_and_apply_coupon');
 add_action('wp_ajax_nopriv_validate_and_apply_coupon', 'validate_and_apply_coupon');
 function validate_and_apply_coupon() {
@@ -2593,42 +2423,31 @@ function validate_and_apply_coupon() {
         wp_send_json_error(array('message' => 'Please enter a coupon code'));
     }
     
-    // Get coupon object
     $coupon = new WC_Coupon($coupon_code);
     
-    // Check if coupon exists
     if (!$coupon->get_id()) {
         wp_send_json_error(array('message' => 'Invalid coupon code'));
     }
     
-    // Check if coupon is valid (general validation)
     if (!$coupon->is_valid()) {
         wp_send_json_error(array('message' => 'This coupon is not valid'));
     }
     
-    // ========================================
-    // 1. CHECK EXPIRY DATE
-    // ========================================
+    // Check expiry
     $expiry_date = $coupon->get_date_expires();
     if ($expiry_date && $expiry_date->getTimestamp() < time()) {
         wp_send_json_error(array('message' => 'This coupon has expired'));
     }
     
-    // ========================================
-    // 2. CHECK USAGE LIMIT (TOTAL)
-    // ========================================
+    // Check usage limit
     $usage_limit = $coupon->get_usage_limit();
     $usage_count = $coupon->get_usage_count();
-    
     if ($usage_limit > 0 && $usage_count >= $usage_limit) {
         wp_send_json_error(array('message' => 'This coupon has reached its usage limit'));
     }
     
-    // ========================================
-    // 3. CHECK USAGE LIMIT PER USER
-    // ========================================
+    // Check usage limit per user
     $usage_limit_per_user = $coupon->get_usage_limit_per_user();
-    
     if ($usage_limit_per_user > 0) {
         $user_id = get_current_user_id();
         $user_email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
@@ -2657,7 +2476,6 @@ function validate_and_apply_coupon() {
                 $user_email,
                 $coupon_code
             ));
-            
             $user_usage_count = max($user_usage_count, intval($email_usage));
         }
         
@@ -2666,13 +2484,10 @@ function validate_and_apply_coupon() {
         }
     }
     
-    // ========================================
-    // 4. CHECK EMAIL RESTRICTIONS
-    // ========================================
+    // Check email restrictions
     $email_restrictions = $coupon->get_email_restrictions();
     if (!empty($email_restrictions)) {
         $user_email = is_user_logged_in() ? wp_get_current_user()->user_email : '';
-        
         if (empty($user_email)) {
             wp_send_json_error(array('message' => 'Please login to use this coupon'));
         }
@@ -2690,18 +2505,14 @@ function validate_and_apply_coupon() {
         }
     }
     
-    // ========================================
-    // 5. GET COUPON RESTRICTIONS
-    // ========================================
+    // Get coupon restrictions
     $product_ids = $coupon->get_product_ids();
     $excluded_product_ids = $coupon->get_excluded_product_ids();
     $product_categories = $coupon->get_product_categories();
     $excluded_product_categories = $coupon->get_excluded_product_categories();
     $exclude_sale_items = $coupon->get_exclude_sale_items();
     
-    // ========================================
-    // 6. SMART COUPONS PRO - GET QUANTITY SETTINGS
-    // ========================================
+    // Smart Coupons Pro settings
     $wt_sc_coupon_categories = get_post_meta($coupon->get_id(), '_wt_sc_coupon_categories', true);
     $wt_enable_category_restriction = get_post_meta($coupon->get_id(), '_wt_enable_product_category_restriction', true);
     $wt_use_individual_min_max = get_post_meta($coupon->get_id(), '_wt_use_individual_min_max', true);
@@ -2709,9 +2520,7 @@ function validate_and_apply_coupon() {
     $wt_max_matching_product_qty = get_post_meta($coupon->get_id(), '_wt_max_matching_product_qty', true);
     $wt_category_condition = get_post_meta($coupon->get_id(), '_wt_category_condition', true);
     
-    // ========================================
-    // 7. FILTER ELIGIBLE CART ITEMS & COUNT QUANTITIES
-    // ========================================
+    // Filter eligible cart items
     $eligible_items = array();
     $eligible_total = 0;
     $eligible_quantity = 0;
@@ -2721,12 +2530,17 @@ function validate_and_apply_coupon() {
         $product = $cart_item['data'];
         $product_id = $cart_item['product_id'];
         $variation_id = $cart_item['variation_id'];
-        $item_total = $cart_item['line_total'];
         $quantity = $cart_item['quantity'];
+        
+        // ========================================
+        // FIX: Tính item_total bao gồm add-ons
+        // ========================================
+        $item_calc = calculate_cart_item_real_total($cart_item);
+        $item_total = $item_calc['line_total'];
         
         $is_eligible = true;
         
-        // Check if product is excluded
+        // Check excluded products
         if (!empty($excluded_product_ids)) {
             if (in_array($product_id, $excluded_product_ids) || 
                 ($variation_id && in_array($variation_id, $excluded_product_ids))) {
@@ -2734,7 +2548,7 @@ function validate_and_apply_coupon() {
             }
         }
         
-        // Check if product is in required products list
+        // Check required products
         if ($is_eligible && !empty($product_ids)) {
             if (!in_array($product_id, $product_ids) && 
                 !($variation_id && in_array($variation_id, $product_ids))) {
@@ -2742,11 +2556,10 @@ function validate_and_apply_coupon() {
             }
         }
         
-        // Check product categories
+        // Check categories
         if ($is_eligible) {
             $product_cats = wp_get_post_terms($product_id, 'product_cat', array('fields' => 'ids'));
             
-            // Check excluded categories
             if (!empty($excluded_product_categories)) {
                 foreach ($excluded_product_categories as $excluded_cat) {
                     if (in_array($excluded_cat, $product_cats)) {
@@ -2756,19 +2569,15 @@ function validate_and_apply_coupon() {
                 }
             }
             
-            // Check required categories
             if ($is_eligible && !empty($product_categories)) {
                 $has_required_category = false;
                 foreach ($product_categories as $required_cat) {
                     if (in_array($required_cat, $product_cats)) {
                         $has_required_category = true;
-                        
-                        // Count quantity per category
                         if (!isset($category_quantities[$required_cat])) {
                             $category_quantities[$required_cat] = 0;
                         }
                         $category_quantities[$required_cat] += $quantity;
-                        
                         break;
                     }
                 }
@@ -2778,12 +2587,11 @@ function validate_and_apply_coupon() {
             }
         }
         
-        // Check if product is on sale (if coupon excludes sale items)
+        // Check sale items
         if ($is_eligible && $exclude_sale_items && $product->is_on_sale()) {
             $is_eligible = false;
         }
         
-        // Add to eligible items
         if ($is_eligible) {
             $eligible_items[] = array(
                 'cart_item_key' => $cart_item_key,
@@ -2797,20 +2605,15 @@ function validate_and_apply_coupon() {
         }
     }
     
-    // ========================================
-    // 8. CHECK IF ANY ELIGIBLE ITEMS EXIST
-    // ========================================
+    // Check if any eligible items
     if (empty($eligible_items)) {
-        // Build helpful error message
         $error_message = 'This coupon is not valid for any products in your cart.';
         
         if (!empty($product_categories)) {
             $cat_names = array();
             foreach ($product_categories as $cat_id) {
                 $category = get_term($cat_id, 'product_cat');
-                if ($category) {
-                    $cat_names[] = $category->name;
-                }
+                if ($category) $cat_names[] = $category->name;
             }
             if (!empty($cat_names)) {
                 $error_message = 'This coupon only applies to: ' . implode(', ', $cat_names);
@@ -2820,98 +2623,62 @@ function validate_and_apply_coupon() {
         wp_send_json_error(array('message' => $error_message));
     }
     
-    // ========================================
-    // 9. CHECK QUANTITY RESTRICTIONS
-    // ========================================
-    
-    // 9A. INDIVIDUAL MIN/MAX PER CATEGORY (như 25OFFPHO)
+    // Check quantity restrictions - Individual per category
     if ($wt_enable_category_restriction === 'yes' && 
         $wt_use_individual_min_max === 'yes' && 
         !empty($wt_sc_coupon_categories) && 
         is_array($wt_sc_coupon_categories)) {
         
-        // Validate minimum và maximum quantity cho từng category
         foreach ($wt_sc_coupon_categories as $cat_id => $qty_rules) {
             $min_qty = !empty($qty_rules['min']) ? intval($qty_rules['min']) : 0;
             $max_qty = !empty($qty_rules['max']) ? intval($qty_rules['max']) : 0;
             $current_qty = isset($category_quantities[$cat_id]) ? $category_quantities[$cat_id] : 0;
             
-            // Get category name for error message
             $category = get_term($cat_id, 'product_cat');
             $category_name = $category ? $category->name : 'required category';
             
-            // Check minimum quantity
             if ($min_qty > 0 && $current_qty < $min_qty) {
                 wp_send_json_error(array(
-                    'message' => sprintf(
-                        'You need at least %d item(s) from "%s" to use this coupon. Currently: %d item(s)',
-                        $min_qty,
-                        $category_name,
-                        $current_qty
-                    )
+                    'message' => sprintf('You need at least %d item(s) from "%s" to use this coupon. Currently: %d item(s)', $min_qty, $category_name, $current_qty)
                 ));
             }
             
-            // Check maximum quantity
             if ($max_qty > 0 && $current_qty > $max_qty) {
                 wp_send_json_error(array(
-                    'message' => sprintf(
-                        'Maximum %d item(s) from "%s" allowed for this coupon. Currently: %d item(s)',
-                        $max_qty,
-                        $category_name,
-                        $current_qty
-                    )
+                    'message' => sprintf('Maximum %d item(s) from "%s" allowed for this coupon. Currently: %d item(s)', $max_qty, $category_name, $current_qty)
                 ));
             }
         }
     }
-    // 9B. GLOBAL MIN/MAX (như LUNCH100)
+    // Global min/max
     else if ($wt_enable_category_restriction === 'yes' && 
              $wt_use_individual_min_max === 'no') {
         
         $global_min_qty = !empty($wt_min_matching_product_qty) ? intval($wt_min_matching_product_qty) : 0;
         $global_max_qty = !empty($wt_max_matching_product_qty) ? intval($wt_max_matching_product_qty) : 0;
         
-        // Check minimum quantity (tổng số sản phẩm eligible)
         if ($global_min_qty > 0 && $eligible_quantity < $global_min_qty) {
             wp_send_json_error(array(
-                'message' => sprintf(
-                    'You need at least %d item(s) from eligible categories to use this coupon. Currently: %d item(s)',
-                    $global_min_qty,
-                    $eligible_quantity
-                )
+                'message' => sprintf('You need at least %d item(s) from eligible categories to use this coupon. Currently: %d item(s)', $global_min_qty, $eligible_quantity)
             ));
         }
         
-        // Check maximum quantity
         if ($global_max_qty > 0 && $eligible_quantity > $global_max_qty) {
             wp_send_json_error(array(
-                'message' => sprintf(
-                    'Maximum %d item(s) from eligible categories allowed for this coupon. Currently: %d item(s)',
-                    $global_max_qty,
-                    $eligible_quantity
-                )
+                'message' => sprintf('Maximum %d item(s) from eligible categories allowed for this coupon. Currently: %d item(s)', $global_max_qty, $eligible_quantity)
             ));
         }
     }
     
-    // ========================================
-    // 10. CHECK MINIMUM AMOUNT (on eligible items only)
-    // ========================================
+    // Check minimum amount
     $minimum_amount = $coupon->get_minimum_amount();
     if ($minimum_amount > 0 && $eligible_total < $minimum_amount) {
         wp_send_json_error(array(
-            'message' => sprintf(
-                'Minimum order amount of ₱%s required for eligible products (Current: ₱%s)',
-                number_format($minimum_amount, 2),
-                number_format($eligible_total, 2)
-            )
+            'message' => sprintf('Minimum order amount of ₱%s required for eligible products (Current: ₱%s)', number_format($minimum_amount, 2), number_format($eligible_total, 2))
         ));
     }
     
-    // ========================================
-    // 11. CHECK MAXIMUM AMOUNT
-    // ========================================
+    // Check maximum amount
     $maximum_amount = $coupon->get_maximum_amount();
     if ($maximum_amount > 0 && $eligible_total > $maximum_amount) {
         wp_send_json_error(array(
@@ -2919,33 +2686,25 @@ function validate_and_apply_coupon() {
         ));
     }
     
-    // ========================================
-    // 12. CALCULATE DISCOUNT (only on eligible items)
-    // ========================================
+    // Calculate discount
     $discount_type = $coupon->get_discount_type();
     $coupon_amount = $coupon->get_amount();
     $discount_amount = 0;
     
     if ($discount_type === 'fixed_cart') {
-        // Fixed cart discount applies to entire eligible total
         $discount_amount = min($coupon_amount, $eligible_total);
     } elseif ($discount_type === 'fixed_product') {
-        // Fixed product discount applies per eligible item
         foreach ($eligible_items as $item) {
             $item_discount = min($coupon_amount * $item['quantity'], $item['item_total']);
             $discount_amount += $item_discount;
         }
     } elseif ($discount_type === 'percent') {
-        // Percentage discount on eligible items
         $discount_amount = ($eligible_total * $coupon_amount) / 100;
-        
-        // Apply maximum discount amount if set
         if ($maximum_amount > 0 && $discount_amount > $maximum_amount) {
             $discount_amount = $maximum_amount;
         }
     }
     
-    // Ensure discount doesn't exceed eligible total
     $discount_amount = min($discount_amount, $eligible_total);
     
     // Format description
@@ -2958,7 +2717,6 @@ function validate_and_apply_coupon() {
         $description = '₱' . number_format($coupon_amount, 2) . ' off';
     }
     
-    // Add info about eligible items
     $eligible_count = count($eligible_items);
     $total_items = count(WC()->cart->get_cart());
     
@@ -2966,7 +2724,6 @@ function validate_and_apply_coupon() {
         $description .= ' (' . $eligible_quantity . ' eligible items)';
     }
     
-    // Build detailed eligible products list
     $eligible_products_info = array();
     foreach ($eligible_items as $item) {
         $eligible_products_info[] = array(
@@ -3013,29 +2770,15 @@ function get_available_coupons_ajax() {
             $coupon_id = get_the_ID();
             $coupon = new WC_Coupon($coupon_id);
             
-            // Check if coupon is valid
-            if (!$coupon->is_valid()) {
-                continue;
-            }
+            if (!$coupon->is_valid()) continue;
+            if ($coupon->get_usage_limit() > 0 && $coupon->get_usage_count() >= $coupon->get_usage_limit()) continue;
             
-            //Check usage limit
-            if ($coupon->get_usage_limit() > 0 && $coupon->get_usage_count() >= $coupon->get_usage_limit()) {
-                continue;
-            }
-            
-            // Check expiry date
             $expiry_date = $coupon->get_date_expires();
-            if ($expiry_date && $expiry_date->getTimestamp() < time()) {
-                continue;
-            }
+            if ($expiry_date && $expiry_date->getTimestamp() < time()) continue;
 
-            // Hide specific coupons from display
-            $hidden_coupons = array('WINSFOODTRIPS', 'DISCOUNT50');
-            if (in_array(strtoupper($coupon->get_code()), $hidden_coupons)) {
-                continue;
-            }
+            $hidden_coupons = array('WINSFOODTRIPS', 'DISCOUNT50', 'HAISELLER', 'HAISELLER2', 'HAISELLER3');
+            if (in_array(strtoupper($coupon->get_code()), $hidden_coupons)) continue;
             
-            // Get coupon details
             $code = $coupon->get_code();
             $discount_type = $coupon->get_discount_type();
             $amount = $coupon->get_amount();
@@ -3043,7 +2786,6 @@ function get_available_coupons_ajax() {
             $maximum_amount = $coupon->get_maximum_amount();
             $description = $coupon->get_description();
             
-            // Format discount text
             $discount_text = '';
             if ($discount_type === 'percent') {
                 $discount_text = $amount . '% OFF';
@@ -3051,20 +2793,10 @@ function get_available_coupons_ajax() {
                 $discount_text = '₱' . number_format($amount, 0) . ' OFF';
             }
             
-            // Build details text
             $details_parts = array();
-            
-            if ($minimum_amount > 0) {
-                $details_parts[] = 'Min: ₱' . number_format($minimum_amount, 0);
-            }
-            
-            if ($maximum_amount > 0) {
-                $details_parts[] = 'Max discount: ₱' . number_format($maximum_amount, 0);
-            }
-            
-            if ($expiry_date) {
-                $details_parts[] = 'Expires: ' . $expiry_date->format('M d, Y');
-            }
+            if ($minimum_amount > 0) $details_parts[] = 'Min: ₱' . number_format($minimum_amount, 0);
+            if ($maximum_amount > 0) $details_parts[] = 'Max discount: ₱' . number_format($maximum_amount, 0);
+            if ($expiry_date) $details_parts[] = 'Expires: ' . $expiry_date->format('M d, Y');
             
             $usage_limit = $coupon->get_usage_limit();
             if ($usage_limit > 0) {
@@ -3074,7 +2806,6 @@ function get_available_coupons_ajax() {
             
             $details = !empty($details_parts) ? implode(' • ', $details_parts) : 'No restrictions';
             
-            // Use description or create a default one
             if (empty($description)) {
                 if ($discount_type === 'percent') {
                     $description = 'Get ' . $amount . '% discount on your order';
@@ -3098,15 +2829,12 @@ function get_available_coupons_ajax() {
         wp_reset_postdata();
     }
     
-    wp_send_json_success(array(
-        'coupons' => $available_coupons
-    ));
+    wp_send_json_success(array('coupons' => $available_coupons));
 }
 
-// Display coupon information in admin order details
+// Display coupon info in admin
 add_action('woocommerce_admin_order_data_after_order_details', 'display_coupon_info_in_admin');
 function display_coupon_info_in_admin($order) {
-    // Get applied coupons
     $coupons = $order->get_coupon_codes();
     
     if (!empty($coupons)) {
@@ -3127,15 +2855,11 @@ function display_coupon_info_in_admin($order) {
     }
 }
 
-// Add order summary box in admin
+// Add order summary in admin
 add_action('woocommerce_admin_order_totals_after_total', 'display_order_summary_breakdown');
 function display_order_summary_breakdown($order_id) {
     $order = wc_get_order($order_id);
-    
-    // Get shipping total
     $shipping_total = $order->get_shipping_total();
-    
-    // Get discount total
     $discount_total = $order->get_discount_total();
     
     if ($shipping_total > 0 || $discount_total > 0) {
@@ -3149,7 +2873,6 @@ function display_order_summary_breakdown($order_id) {
                         <span style="color: #10b981; font-weight: 600;">-₱<?php echo number_format($discount_total, 2); ?></span>
                     </div>
                     <?php endif; ?>
-                    
                     <?php if ($shipping_total > 0): ?>
                     <div style="display: flex; justify-content: space-between;">
                         <strong>🚚 Shipping Fee:</strong>
