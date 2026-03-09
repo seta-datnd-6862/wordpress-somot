@@ -2201,28 +2201,35 @@ function process_complete_checkout() {
         // vì calculate_totals() có thể reset lại item prices từ product gốc
         // ========================================
         
+        // Save order trước để đảm bảo tất cả item changes được persist
+        $order->save();
+        
+        // Re-read order để lấy item data mới nhất
+        $order = wc_get_order($order->get_id());
+        
         // Tính items subtotal (đã bao gồm addon)
         $items_subtotal = 0;
         foreach ($order->get_items() as $item) {
-            $items_subtotal += $item->get_total();
+            $items_subtotal += floatval($item->get_total());
         }
         
         // Tính shipping total
         $shipping_total = 0;
         foreach ($order->get_items('shipping') as $item) {
-            $shipping_total += $item->get_total();
+            $shipping_total += floatval($item->get_total());
         }
         
         // Tính discount total
         $discount_total = 0;
         foreach ($order->get_items('coupon') as $item) {
-            $discount_total += $item->get_discount();
+            $discount_total += floatval($item->get_discount());
         }
         
         // Set order totals
         $order->set_shipping_total($shipping_total);
         $order->set_discount_total($discount_total);
         $order->set_total($items_subtotal + $shipping_total - $discount_total);
+        $order->save();
         
         // Apply coupons
         if (!empty($_POST['applied_coupons'])) {
@@ -2296,19 +2303,22 @@ function process_complete_checkout() {
         // FIX: Tự tính lại order total sau khi apply coupons
         // KHÔNG dùng calculate_totals() vì nó reset addon prices
         // ========================================
+        $order->save();
+        $order = wc_get_order($order->get_id());
+        
         $items_subtotal = 0;
         foreach ($order->get_items() as $item) {
-            $items_subtotal += $item->get_total();
+            $items_subtotal += floatval($item->get_total());
         }
         
         $shipping_total = 0;
         foreach ($order->get_items('shipping') as $item) {
-            $shipping_total += $item->get_total();
+            $shipping_total += floatval($item->get_total());
         }
         
         $discount_total = 0;
         foreach ($order->get_items('coupon') as $item) {
-            $discount_total += $item->get_discount();
+            $discount_total += floatval($item->get_discount());
         }
         
         $order->set_shipping_total($shipping_total);
