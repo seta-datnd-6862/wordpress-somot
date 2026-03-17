@@ -84,10 +84,13 @@ function render_custom_checkout() {
         return;
     }
 
-    // ── Branch data ────────────────────────────────────────────
+    // ── Branch data (IDs match cookie sync: 136/137/138) ─────
+    // 'id' = text slug used by Goodriver API
+    // 'cookie_id' = numeric ID stored in somot_active_branch_id cookie
     $branches = [
         [
             'id' => 'pioneer',
+            'cookie_id' => '136',
             'name' => 'So Mot Pioneer Center, Pasig city',
             'lat' => 14.5731404,
             'lng' => 121.0164509,
@@ -97,6 +100,7 @@ function render_custom_checkout() {
         ],
         [
             'id' => 'ayala',
+            'cookie_id' => '138',
             'name' => 'So Mot Ayala Malls Cloverleaf',
             'lat' => 14.6550542,
             'lng' => 120.9630123,
@@ -106,6 +110,7 @@ function render_custom_checkout() {
         ],
         [
             'id' => 'tayuman',
+            'cookie_id' => '137',
             'name' => 'So Mot Tayuman, Santa Cruz, Manila',
             'lat' => 14.617797968904622,
             'lng' => 120.98393022997824,
@@ -241,19 +246,7 @@ function render_custom_checkout() {
         .m-location-btn:hover { background: #3b7d3b; color: #fff; }
         .m-location-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-        /* ── Branch suggestions ── */
-        .m-branch-suggestions {
-            background: #f0fdf4; border-left: 3px solid #3b7d3b;
-            border-radius: 0 10px 10px 0; padding: 14px 16px; margin-top: 12px;
-        }
-        .m-branch-suggestions h4 { margin: 0 0 10px 0; font-size: 14px; color: #1a1a1a; }
-        .m-branch-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 8px 12px; background: #fff; border-radius: 8px; margin-bottom: 6px;
-            font-size: 13px;
-        }
-        .m-branch-item:last-child { margin-bottom: 0; }
-        .m-branch-distance { color: #3b7d3b; font-weight: 700; }
+
 
         /* ── Delivery area error ── */
         .m-delivery-area-error {
@@ -617,22 +610,28 @@ function render_custom_checkout() {
                         <button type="button" class="m-tab-btn" id="tab-pickup" data-type="pickup">📦 Pickup</button>
                     </div>
 
-                    <!-- Branch selector -->
+                    <!-- Branch display (locked — auto-mapped from cookie) -->
                     <div class="m-form-group">
-                        <label class="m-label">Choose Branch <span class="req">*</span></label>
-                        <select id="m_branch_select" class="m-input">
-                            <?php foreach ($branches as $b): ?>
-                                <option value="<?php echo $b['id']; ?>"
-                                        data-lat="<?php echo $b['lat']; ?>"
-                                        data-lng="<?php echo $b['lng']; ?>"
-                                        data-address="<?php echo esc_attr($b['address']); ?>"
-                                        data-start-time="<?php echo $b['start_time']; ?>"
-                                        data-end-time="<?php echo $b['end_time']; ?>">
-                                    <?php echo esc_html($b['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label class="m-label">Delivering from Branch</label>
+                        <div class="m-input-display" id="val-branch" style="background:#f0fdf4; border-color:#d1fae5;">
+                            <span id="branch-name-display" style="font-weight:600; color:#3b7d3b;">Loading...</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b7d3b" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        </div>
                     </div>
+                    <!-- Hidden select keeps all branch data for JS to read -->
+                    <select id="m_branch_select" style="display:none;">
+                        <?php foreach ($branches as $b): ?>
+                            <option value="<?php echo $b['id']; ?>"
+                                    data-cookie-id="<?php echo $b['cookie_id']; ?>"
+                                    data-lat="<?php echo $b['lat']; ?>"
+                                    data-lng="<?php echo $b['lng']; ?>"
+                                    data-address="<?php echo esc_attr($b['address']); ?>"
+                                    data-start-time="<?php echo $b['start_time']; ?>"
+                                    data-end-time="<?php echo $b['end_time']; ?>">
+                                <?php echo esc_html($b['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
 
                     <!-- Delivery address (hidden when Pickup) -->
                     <div id="row-delivery-address">
@@ -664,11 +663,7 @@ function render_custom_checkout() {
                             <p><strong>Please select an address within these areas or choose "Pickup" instead.</strong></p>
                         </div>
 
-                        <!-- Branch suggestions (from Doc1) -->
-                        <div id="branch-suggestions" class="m-branch-suggestions hidden">
-                            <h4>🏢 Nearest Branches:</h4>
-                            <div id="branch-list"></div>
-                        </div>
+
 
                         <!-- Distance info (from Doc1) -->
                         <div id="distance-info-box" class="m-distance-info hidden">
@@ -1116,22 +1111,7 @@ function render_custom_checkout() {
             $('#m-place-order-btn').prop('disabled', false);
         }
 
-        // ══════════════════════════════════════════
-        // NEAREST BRANCHES (from Doc1)
-        // ══════════════════════════════════════════
-        function showNearestBranches(lat, lng) {
-            const sorted = BRANCHES.map(b => ({
-                ...b,
-                distance: calculateDistanceKm(lat, lng, b.lat, b.lng)
-            })).sort((a, b) => a.distance - b.distance);
 
-            let html = '';
-            sorted.forEach(b => {
-                html += '<div class="m-branch-item"><div><strong>' + b.name + '</strong></div><div class="m-branch-distance">' + b.distance.toFixed(2) + ' km</div></div>';
-            });
-            $('#branch-list').html(html);
-            $('#branch-suggestions').removeClass('hidden');
-        }
 
         // ══════════════════════════════════════════
         // SHIPPING FEE CALCULATION
@@ -1192,7 +1172,6 @@ function render_custom_checkout() {
                 const deliveryType = $('#h_delivery_type').val();
                 const isValid = validateDeliveryArea(selectedPlace, deliveryType);
                 if (isValid) {
-                    showNearestBranches(lat, lng);
                     if (deliveryType === 'delivery') calculateDistance(lat, lng);
                 }
             });
@@ -1212,7 +1191,6 @@ function render_custom_checkout() {
                 $('#row-delivery-address').slideUp(200);
                 $('#delivery-area-warning').addClass('hidden');
                 $('#distance-info-box').addClass('hidden');
-                $('#branch-suggestions').addClass('hidden');
                 calculatedShippingFee = 0;
                 updateTotals();
                 enableProceedButton();
@@ -1232,20 +1210,23 @@ function render_custom_checkout() {
         });
 
         // ══════════════════════════════════════════
-        // BRANCH SELECTOR
+        // BRANCH — LOCKED FROM COOKIE
         // ══════════════════════════════════════════
+        // Branch is auto-set from cookie somot_active_branch_id
+        // and cannot be changed during checkout.
+
         $('#m_branch_select').change(function() {
             const opt = $(this).find('option:selected');
             branchLocation.lat = parseFloat(opt.data('lat'));
             branchLocation.lng = parseFloat(opt.data('lng'));
             $('#h_branch').val($(this).val());
 
-            // Update time slots for branch hours
-            const startTime = opt.data('start-time');
-            const endTime   = opt.data('end-time');
-            // Store for time popup rebuild
-            $(this).data('current-start', startTime);
-            $(this).data('current-end', endTime);
+            // Update display name
+            $('#branch-name-display').text(opt.text().trim());
+
+            // Store branch hours for time popup
+            $(this).data('current-start', opt.data('start-time'));
+            $(this).data('current-end', opt.data('end-time'));
 
             // Recalc shipping if address set
             const lat = parseFloat($('#h_address_lat').val()) || 0;
@@ -1255,8 +1236,32 @@ function render_custom_checkout() {
             }
         });
 
-        // Initialize first branch
-        $('#m_branch_select').trigger('change');
+        // Read branch from cookie and lock it
+        // Cookie stores numeric ID (136/137/138), option value is text slug (pioneer/ayala/tayuman)
+        // We match via data-cookie-id attribute
+        (function initBranchFromCookie() {
+            const cookieBranch = getCookie('somot_active_branch_id'); // e.g. '136'
+            const urlBranch    = new URLSearchParams(window.location.search).get('branch'); // could be '136' or 'pioneer'
+
+            const lookupId = urlBranch || cookieBranch || '136'; // fallback Pioneer
+
+            // Try matching by data-cookie-id first (numeric), then by value (text slug)
+            let matchOpt = $('#m_branch_select option').filter(function() {
+                return $(this).data('cookie-id') == lookupId;
+            });
+            if (!matchOpt.length) {
+                matchOpt = $('#m_branch_select option').filter(function() {
+                    return $(this).val() == lookupId;
+                });
+            }
+
+            if (matchOpt.length) {
+                $('#m_branch_select').val(matchOpt.val());
+            } else {
+                $('#m_branch_select').val($('#m_branch_select option:first').val());
+            }
+            $('#m_branch_select').trigger('change');
+        })();
 
         // ══════════════════════════════════════════
         // EDIT ADDRESS
@@ -1289,7 +1294,6 @@ function render_custom_checkout() {
                         const deliveryType = $('#h_delivery_type').val();
                         const isValid = validateDeliveryArea(results[0], deliveryType);
                         if (isValid) {
-                            showNearestBranches(lat, lng);
                             if (deliveryType === 'delivery') calculateDistance(lat, lng);
                         }
                     }
@@ -1619,28 +1623,20 @@ function render_custom_checkout() {
         });
 
         // ══════════════════════════════════════════
-        // INIT: Read data from ordering page cookies
+        // INIT: Read address & order type from cookies
+        // (Branch is already locked above from cookie)
         // ══════════════════════════════════════════
         function getParam(key) { return new URLSearchParams(window.location.search).get(key); }
         function getLs(key)    { try { return localStorage.getItem(key); } catch(e) { return null; } }
         function pick(...vals) { return vals.find(v => v != null && String(v).trim() !== '' && String(v).trim() !== 'null'); }
 
-        // Branch from cookie
-        const initBranchId = pick(getParam('branch'), getLs('somot_branch_id'), getLs('somot_active_branch_id'), getCookie('somot_active_branch_id'));
-        if (initBranchId) {
-            const matchOpt = $('#m_branch_select option').filter(function() { return $(this).val() == initBranchId; });
-            if (matchOpt.length) {
-                $('#m_branch_select').val(initBranchId).trigger('change');
-            }
-        }
-
-        // Delivery type from cookie
+        // Delivery type from cookie (editable)
         const initType = pick(getParam('type'), getLs('somot_order_type'), getCookie('somot_order_type'), 'delivery');
         if (initType === 'pickup') {
             $('#tab-pickup').trigger('click');
         }
 
-        // Address from cookie
+        // Address from cookie (editable)
         const initAddr = pick(decodeURIComponent(getParam('address') || ''), getLs('somot_customer_address'), getCookie('somot_customer_address'));
         const initLat  = parseFloat(pick(getParam('lat'), getLs('somot_address_lat'), getCookie('somot_address_lat')) || 0);
         const initLng  = parseFloat(pick(getParam('lng'), getLs('somot_address_lng'), getCookie('somot_address_lng')) || 0);
@@ -1653,7 +1649,6 @@ function render_custom_checkout() {
             $('#h_address_lat').val(initLat);
             $('#h_address_lng').val(initLng);
             if (initType !== 'pickup') {
-                showNearestBranches(initLat, initLng);
                 calculateDistance(initLat, initLng);
             }
         }
