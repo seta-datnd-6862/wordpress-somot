@@ -883,12 +883,14 @@ function render_custom_checkout() {
                             <a href="https://so-mot.com/wp-content/uploads/2026/03/gcash-ANATALIO-JR-FRANCISCO.jpg" download class="m-save-qr-btn">Save QR</a>
                         </div>
                         <div class="m-bank-card">
-                            <div class="m-bank-name">🏦 BPI</div>
-                            <div class="m-bank-owner">KEYSTONE VENTURE NETWORK CORPORATION</div>
-                            <button type="button" class="m-bank-acc-btn" onclick="copyAccNum('0251000611', this)">
-                                0251000611
+                            <div class="m-bank-name">🏦 BDO</div>
+                            <div class="m-bank-owner">Kha V Ngo</div>
+                            <button type="button" class="m-bank-acc-btn" onclick="copyAccNum('007540182560', this)">
+                                007540182560
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                             </button>
+                            <img src="https://so-mot.com/wp-content/uploads/2026/03/Kha-V-Ngo-BDO.jpg" alt="BDO QR" class="m-bank-qr">
+                            <a href="https://so-mot.com/wp-content/uploads/2026/03/Kha-V-Ngo-BDO.jpg" download class="m-save-qr-btn">Save QR</a>
                         </div>
                         <div class="m-bank-card">
                             <div class="m-bank-name">📱 TP Bank</div>
@@ -899,16 +901,6 @@ function render_custom_checkout() {
                             </button>
                             <img src="https://so-mot.com/wp-content/uploads/2026/03/tpbank-c-Hoa.jpg" alt="TP Bank QR" class="m-bank-qr">
                             <a href="https://so-mot.com/wp-content/uploads/2026/03/tpbank-c-Hoa.jpg" download class="m-save-qr-btn">Save QR</a>
-                        </div>
-                        <div class="m-bank-card">
-                            <div class="m-bank-name">🏦 BDO</div>
-                            <div class="m-bank-owner">Kha V Ngo</div>
-                            <button type="button" class="m-bank-acc-btn" onclick="copyAccNum('007540182560', this)">
-                                007540182560
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                            </button>
-                            <img src="https://so-mot.com/wp-content/uploads/2026/03/Kha-V-Ngo-BDO.jpg" alt="BDO QR" class="m-bank-qr">
-                            <a href="https://so-mot.com/wp-content/uploads/2026/03/Kha-V-Ngo-BDO.jpg" download class="m-save-qr-btn">Save QR</a>
                         </div>
                     </div>
 
