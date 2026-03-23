@@ -1,3 +1,8 @@
+<?php
+
+/**
+ * Custom Checkout Page - Luu
+ */
 /**
  * ═══════════════════════════════════════════════════════════════
  * CUSTOM CHECKOUT PAGE — MERGED
@@ -1031,6 +1036,28 @@ function render_custom_checkout() {
         let receiptTab         = 'individual';
         let ac                 = null; // Google autocomplete
 
+        let shippingCouponDiscount = 0;
+
+        function applyShippingDiscount(amount) {
+            shippingCouponDiscount = amount;
+        }
+
+        function recalcShippingCoupon() {
+            // Khi shipping fee thay đổi → recalc shipping coupon discount
+            const shipCoupon = appliedCoupons.find(c => c.is_shipping_coupon);
+            if (!shipCoupon || !shipCoupon.coupon_config) return;
+
+            const config   = shipCoupon.coupon_config;
+            const newDisc  = calculatedShippingFee > 0
+                ? Math.min(config.discount_amount, calculatedShippingFee)  // logic shipping_fixed
+                : 0;
+
+            shipCoupon.discount   = newDisc;
+            shippingCouponDiscount = newDisc;
+            updateAppliedCouponsUI();
+            updateTotalWithCoupons();
+        }
+
         // ══════════════════════════════════════════
         // HELPERS
         // ══════════════════════════════════════════
@@ -1050,18 +1077,29 @@ function render_custom_checkout() {
         // UPDATE TOTALS
         // ══════════════════════════════════════════
         function updateTotals() {
-            const total = Math.max(0, SUBTOTAL + calculatedShippingFee - totalDiscount);
-            $('#display-shipping-fee').text(fmtMoney(calculatedShippingFee));
-            $('#shipping-fee-display').text(fmtMoney(calculatedShippingFee));
+            const effectiveShipping = Math.max(0, calculatedShippingFee - shippingCouponDiscount);
+            const total = Math.max(0, SUBTOTAL + effectiveShipping - (totalDiscount - shippingCouponDiscount));
+            // Hiển thị ship sau khi đã trừ coupon
+            $('#display-shipping-fee').text(
+                shippingCouponDiscount > 0
+                    ? fmtMoney(effectiveShipping) + ' <span style="color:#0ea5e9;font-size:12px;">(-' + fmtMoney(shippingCouponDiscount) + ')</span>'
+                    : fmtMoney(calculatedShippingFee)
+            );
+            $('#display-shipping-fee').html(
+                shippingCouponDiscount > 0
+                    ? fmtMoney(effectiveShipping) + ' <span style="color:#0ea5e9;font-size:12px;font-weight:600;">(-' + fmtMoney(shippingCouponDiscount) + ')</span>'
+                    : fmtMoney(calculatedShippingFee)
+            );
+            $('#shipping-fee-display').text(fmtMoney(effectiveShipping));
             $('#display-total').text(fmtMoney(total));
             $('#btn-total-display').text(fmtMoney(total));
-            if (totalDiscount > 0) {
+            if (totalDiscount > shippingCouponDiscount) {
                 $('#discount-row').show();
-                $('#display-discount').text('-' + fmtMoney(totalDiscount));
+                $('#display-discount').text('-' + fmtMoney(totalDiscount - shippingCouponDiscount));
             } else {
                 $('#discount-row').hide();
             }
-            $('#h_shipping_fee').val(calculatedShippingFee);
+            $('#h_shipping_fee').val(effectiveShipping); // gửi phí ship đã giảm lên server
         }
 
         // ══════════════════════════════════════════
@@ -1144,6 +1182,7 @@ function render_custom_checkout() {
                 } else {
                     calculatedShippingFee = 0;
                 }
+                recalcShippingCoupon();
                 updateTotals();
             }).fail(function() {
                 // Fallback về hàm cũ nếu Lalamove lỗi
@@ -1164,9 +1203,11 @@ function render_custom_checkout() {
                 cash_on_delivery: 0, holiday: 0, night_shift: nightShift, raining: 0
             }, function(response) {
                 calculatedShippingFee = parseFloat(response?.data?.total_delivery_fee) || 0;
+                recalcShippingCoupon();
                 updateTotals();
             }).fail(function() {
                 calculatedShippingFee = 0;
+                recalcShippingCoupon();
                 updateTotals();
             });
         }
@@ -1459,18 +1500,18 @@ function render_custom_checkout() {
 
         // Load available coupons
         function loadAvailableCoupons() {
-            $.post(AJAX_URL, {
-                action: 'get_available_coupons',
-                cart_total: SUBTOTAL
-            }, function(response) {
-                if (response.success && response.data.coupons) {
-                    availableCouponsData = response.data.coupons;
-                    renderAvailableCoupons();
-                } else {
-                    $('#available-coupons-list').html('<div style="color:#aaa;font-size:13px;padding:4px 0;">No coupons available</div>');
-                }
-            }).fail(function() {
-                $('#available-coupons-list').html('<div style="color:#aaa;font-size:13px;padding:4px 0;">Error loading coupons</div>');
+            // Load WC coupons thường
+            const p1 = $.post(AJAX_URL, { action: 'get_available_coupons', cart_total: SUBTOTAL });
+            // Load shipping coupons (custom)
+            const p2 = $.post(AJAX_URL, { action: 'get_shipping_coupons' });
+
+            $.when(p1, p2).done(function(r1, r2) {
+                const wcCoupons  = (r1[0]?.success && r1[0]?.data?.coupons)  ? r1[0].data.coupons  : [];
+                const shipCoupons = (r2[0]?.success && r2[0]?.data?.shipping_coupons) ? r2[0].data.shipping_coupons : [];
+                // Gắn badge màu xanh dương để phân biệt
+                shipCoupons.forEach(c => c._isShipping = true);
+                availableCouponsData = [...shipCoupons, ...wcCoupons]; // shipping coupon lên đầu
+                renderAvailableCoupons();
             });
         }
 
@@ -1483,27 +1524,37 @@ function render_custom_checkout() {
             let html = '';
             availableCouponsData.forEach(function(c) {
                 const isApplied  = appliedCoupons.some(a => a.code === c.code.toUpperCase());
-                const isDisabled = c.minimum_amount > SUBTOTAL;
+                const isShipping = !!c._isShipping;
+                const isDisabled = !isShipping && c.minimum_amount > SUBTOTAL; // shipping coupon không check minimum_amount theo subtotal
+
                 let cls = 'm-coupon-card';
                 if (isApplied) cls += ' applied';
                 if (isDisabled) cls += ' disabled';
+
+                // Badge màu: xanh dương cho shipping, xanh lá cho WC coupon
+                const accentColor = isShipping ? '#0ea5e9' : '#3b7d3b';
+                const badgeLabel  = isShipping ? '🚚 SHIP PROMO' : '🎟️ PROMO';
 
                 let btnText = isApplied ? 'Applied ✓' : 'Apply';
                 let conditions = '';
                 if (isDisabled) {
                     conditions = '<div class="m-coupon-card-conditions">Min order: ' + fmtMoney(c.minimum_amount) + '</div>';
                 }
+                if (isShipping) {
+                    conditions = '<div style="font-size:11px;color:#0369a1;margin-top:4px;">Applied to shipping fee</div>';
+                }
 
-                html += '<div class="' + cls + '" onclick="applyCouponFromCard(\'' + c.code + '\')">' +
+                html += '<div class="' + cls + '" style="border-color:' + accentColor + ';" onclick="applyCouponFromCard(\'' + c.code + '\')">' +
                     '<div class="m-coupon-card-info">' +
-                        '<div class="m-coupon-card-code">' + c.code + '</div>' +
+                        '<div style="font-size:10px;font-weight:700;color:' + accentColor + ';margin-bottom:3px;">' + badgeLabel + '</div>' +
+                        '<div class="m-coupon-card-code" style="color:' + accentColor + ';">' + c.code + '</div>' +
                         '<div class="m-coupon-card-desc">' + c.description + '</div>' +
                         '<div class="m-coupon-card-details">' + c.details + '</div>' +
                         conditions +
                     '</div>' +
-                    '<div class="m-coupon-card-discount">' + c.discount_text + '</div>' +
-                    '<button type="button" class="m-coupon-card-btn" ' +
-                        (isDisabled || isApplied ? 'disabled' : '') +
+                    '<div class="m-coupon-card-discount" style="color:' + accentColor + ';">' + c.discount_text + '</div>' +
+                    '<button type="button" class="m-coupon-card-btn" style="background:' + accentColor + ';"' +
+                        (isDisabled || isApplied ? ' disabled' : '') +
                         ' onclick="event.stopPropagation(); applyCouponFromCard(\'' + c.code + '\')">' +
                         btnText + '</button>' +
                 '</div>';
@@ -1530,14 +1581,57 @@ function render_custom_checkout() {
             if (appliedCoupons.some(c => c.code === code)) {
                 showCouponMessage('This coupon is already applied', 'error'); return;
             }
-
-            // Check individual_use constraints
             const hasIndividualUse = appliedCoupons.some(c => c.individual_use === true);
             if (hasIndividualUse) {
                 showCouponMessage('Cannot combine with current coupon', 'error'); return;
             }
 
             $(this).prop('disabled', true).text('Checking...');
+
+            // BƯỚC 1: Thử validate shipping coupon trước
+            $.post(AJAX_URL, {
+                action: 'validate_shipping_coupon',
+                coupon_code: code,
+                shipping_fee: calculatedShippingFee,
+                subtotal: SUBTOTAL
+            }, function(res) {
+                if (res.success) {
+                    // ✅ Là shipping coupon
+                    const discAmt = parseFloat(res.data.discount_amount) || 0;
+                    appliedCoupons.push({
+                        code: code,
+                        discount: discAmt,
+                        type: 'shipping',
+                        description: res.data.description,
+                        individual_use: false,
+                        is_shipping_coupon: true,
+                        coupon_config: res.data.coupon_config  // lưu config để recalc
+                    });
+                    applyShippingDiscount(discAmt);
+                    updateAppliedCouponsUI();
+                    updateTotalWithCoupons();
+                    $('#coupon-input').val('');
+                    const msg = discAmt >= calculatedShippingFee && calculatedShippingFee > 0
+                        ? '🚚 Free shipping applied!'
+                        : '🚚 Shipping discount ₱' + discAmt.toFixed(0) + ' applied!';
+                    showCouponMessage(msg, 'success');
+                    $('#btn-apply-coupon').prop('disabled', false).text('Apply');
+
+                } else if (res.data?.fallback) {
+                    // BƯỚC 2: Không phải shipping coupon → thử WC coupon thường
+                    applyWcCoupon(code);
+                } else {
+                    // Là shipping coupon nhưng không hợp lệ
+                    showCouponMessage(res.data?.message || 'Invalid coupon', 'error');
+                    $('#btn-apply-coupon').prop('disabled', false).text('Apply');
+                }
+            }).fail(function() {
+                applyWcCoupon(code);
+            });
+        });
+
+        // Tách riêng hàm apply WC coupon thường
+        function applyWcCoupon(code) {
             $.post(AJAX_URL, {
                 action: 'validate_and_apply_coupon',
                 coupon_code: code,
@@ -1547,20 +1641,18 @@ function render_custom_checkout() {
                 if (response.success) {
                     const discAmt = parseFloat(response.data.discount_amount) || 0;
                     const isIndividual = response.data.individual_use === true;
-
                     if (isIndividual && appliedCoupons.length > 0) {
                         showCouponMessage('This coupon cannot be used with other coupons', 'error');
                         return;
                     }
-
                     appliedCoupons.push({
                         code: code,
                         discount: discAmt,
                         type: response.data.discount_type || 'percent',
                         description: response.data.description || '',
-                        individual_use: isIndividual
+                        individual_use: isIndividual,
+                        is_shipping_coupon: false
                     });
-
                     updateAppliedCouponsUI();
                     updateTotalWithCoupons();
                     $('#coupon-input').val('');
@@ -1572,7 +1664,7 @@ function render_custom_checkout() {
                 $('#btn-apply-coupon').prop('disabled', false).text('Apply');
                 showCouponMessage('Error. Please try again.', 'error');
             });
-        });
+        }
 
         // Enter key on coupon input
         $('#coupon-input').keypress(function(e) {
@@ -1780,6 +1872,12 @@ function render_custom_checkout() {
             fd.append('receipt_address', $('#h_receipt_address').val());
             fd.append('receipt_email', $('#h_receipt_email').val());
 
+            const shipCoupon = appliedCoupons.find(c => c.is_shipping_coupon);
+            if (shipCoupon) {
+                fd.append('shipping_coupon_code',     shipCoupon.code);
+                fd.append('shipping_coupon_discount', shipCoupon.discount);
+            }
+
             $.ajax({
                 url: AJAX_URL, type: 'POST', data: fd,
                 processData: false, contentType: false,
@@ -1939,6 +2037,14 @@ function process_complete_checkout() {
                     $order->add_order_note(sprintf('Coupon "%s" applied. Discount: ₱%s', $coupon_code, number_format($coupon_data['discount'], 2)));
                 }
             }
+        }
+
+        // Apply shipping coupon (custom)
+        if (!empty($_POST['shipping_coupon_code'])) {
+            save_shipping_coupon_to_order($order, [
+                'code'     => $_POST['shipping_coupon_code'],
+                'discount' => floatval($_POST['shipping_coupon_discount'])
+            ]);
         }
 
         // Set custom meta
