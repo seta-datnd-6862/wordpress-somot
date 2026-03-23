@@ -90,7 +90,7 @@ function render_custom_checkout() {
     $branches = [
         [
             'id' => 'pioneer',
-            'cookie_id' => '136',
+            'cookie_id' => 'so-mot-pioneer-center-pasig-city',
             'name' => 'So Mot Pioneer Center, Pasig city',
             'lat' => 14.5731404,
             'lng' => 121.0164509,
@@ -100,7 +100,7 @@ function render_custom_checkout() {
         ],
         [
             'id' => 'ayala',
-            'cookie_id' => '138',
+            'cookie_id' => 'so-mot-ayala-malls-cloverleaf',
             'name' => 'So Mot Ayala Malls Cloverleaf',
             'lat' => 14.6550542,
             'lng' => 120.9630123,
@@ -110,7 +110,7 @@ function render_custom_checkout() {
         ],
         [
             'id' => 'tayuman',
-            'cookie_id' => '137',
+            'cookie_id' => 'so-mot-tayuman-santa-cruz-manila',
             'name' => 'So Mot Tayuman, Santa Cruz, Manila',
             'lat' => 14.617797968904622,
             'lng' => 120.98393022997824,
@@ -1117,6 +1117,43 @@ function render_custom_checkout() {
 
         function getShippingFee(distance) {
             const deliveryTime = $('#h_delivery_time').val() || 'ASAP';
+            const deliveryDate = $('#h_delivery_date').val() || new Date().toISOString().split('T')[0];
+            
+            // Build schedule datetime
+            let scheduleDatetime = 'ASAP';
+            if (deliveryTime !== 'ASAP') {
+                scheduleDatetime = deliveryDate + ' ' + deliveryTime;
+            }
+
+            // Lấy branch info
+            const branchOpt = $('#m_branch_select option:selected');
+            
+            $.post('https://goodriver.online/api/setting/get-lalamove-delivery-fee', {
+                branch_lat: branchOpt.data('lat'),
+                branch_lng: branchOpt.data('lng'),
+                branch_address: branchOpt.data('address'),
+                dest_lat: $('#h_address_lat').val(),
+                dest_lng: $('#h_address_lng').val(),
+                dest_address: $('#h_address').val(),
+                schedule_datetime: scheduleDatetime,
+                is_cod: 0,
+                item_quantity: <?php echo $cart_item_count; ?>
+            }, function(response) {
+                if (response?.data?.total_delivery_fee) {
+                    calculatedShippingFee = parseFloat(response.data.total_delivery_fee);
+                } else {
+                    calculatedShippingFee = 0;
+                }
+                updateTotals();
+            }).fail(function() {
+                // Fallback về hàm cũ nếu Lalamove lỗi
+                getShippingFeeFallback(distance);
+            });
+        }
+
+        // Giữ hàm cũ làm fallback
+        function getShippingFeeFallback(distance) {
+            const deliveryTime = $('#h_delivery_time').val() || 'ASAP';
             let nightShift = 0;
             if (deliveryTime !== 'ASAP') {
                 const hour = parseInt(deliveryTime.split(':')[0]);
@@ -1232,10 +1269,10 @@ function render_custom_checkout() {
         // Cookie stores numeric ID (136/137/138), option value is text slug (pioneer/ayala/tayuman)
         // We match via data-cookie-id attribute
         (function initBranchFromCookie() {
-            const cookieBranch = getCookie('somot_active_branch_id'); // e.g. '136'
+            const cookieBranch = getCookie('somot_active_branch_id'); // e.g. 'so-mot-pioneer-center-pasig-city'
             const urlBranch    = new URLSearchParams(window.location.search).get('branch'); // could be '136' or 'pioneer'
 
-            const lookupId = urlBranch || cookieBranch || '136'; // fallback Pioneer
+            const lookupId = urlBranch || cookieBranch || 'so-mot-pioneer-center-pasig-city'; // fallback Pioneer
 
             // Try matching by data-cookie-id first (numeric), then by value (text slug)
             let matchOpt = $('#m_branch_select option').filter(function() {
@@ -1741,6 +1778,7 @@ function render_custom_checkout() {
             fd.append('receipt_name', $('#h_receipt_name').val());
             fd.append('receipt_tin', $('#h_receipt_tin').val());
             fd.append('receipt_address', $('#h_receipt_address').val());
+            fd.append('receipt_email', $('#h_receipt_email').val());
 
             $.ajax({
                 url: AJAX_URL, type: 'POST', data: fd,
@@ -1921,6 +1959,9 @@ function process_complete_checkout() {
             $order->update_meta_data('_ereceipt_name', sanitize_text_field($_POST['receipt_name']));
             $order->update_meta_data('_ereceipt_tin', sanitize_text_field($_POST['receipt_tin']));
             $order->update_meta_data('_ereceipt_address', sanitize_textarea_field($_POST['receipt_address']));
+            if (!empty($_POST['receipt_email'])) {
+                $order->update_meta_data('_ereceipt_email', sanitize_email($_POST['receipt_email']));
+            }
         }
 
         // VAT info
@@ -2412,6 +2453,7 @@ function display_custom_checkout_info_in_admin($order) {
         echo '<p><strong>Name:</strong> ' . esc_html($order->get_meta('_ereceipt_name')) . '</p>';
         if ($order->get_meta('_ereceipt_tin'))     echo '<p><strong>TIN:</strong> ' . esc_html($order->get_meta('_ereceipt_tin')) . '</p>';
         if ($order->get_meta('_ereceipt_address')) echo '<p><strong>Address:</strong> ' . esc_html($order->get_meta('_ereceipt_address')) . '</p>';
+        if ($order->get_meta('_ereceipt_email'))   echo '<p><strong>Email:</strong> ' . esc_html($order->get_meta('_ereceipt_email')) . '</p>';
         echo '</div>';
     }
 
