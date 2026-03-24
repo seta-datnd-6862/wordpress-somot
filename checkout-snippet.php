@@ -1043,20 +1043,39 @@ function render_custom_checkout() {
         }
 
         function recalcShippingCoupon() {
-            // Khi shipping fee thay đổi → recalc shipping coupon discount
             const shipCoupon = appliedCoupons.find(c => c.is_shipping_coupon);
             if (!shipCoupon || !shipCoupon.coupon_config) return;
-
-            const config   = shipCoupon.coupon_config;
-            const newDisc  = calculatedShippingFee > 0
-                ? Math.min(config.discount_amount, calculatedShippingFee)  // logic shipping_fixed
-                : 0;
-
-            shipCoupon.discount   = newDisc;
-            shippingCouponDiscount = newDisc;
-            updateAppliedCouponsUI();
-            updateTotalWithCoupons();
+        
+            const config = shipCoupon.coupon_config;
+            let newDisc  = 0;
+        
+            if (calculatedShippingFee > 0) {
+                switch (config.discount_type) {
+                    case 'shipping_free':
+                        // Free ship hoàn toàn
+                        newDisc = calculatedShippingFee;
+                        break;
+        
+                    case 'shipping_fixed':
+                // Giảm cố định, tối đa = shipping fee (không âm)
+                newDisc = Math.min(parseFloat(config.discount_amount), calculatedShippingFee);
+                break;
+ 
+            case 'shipping_percent':
+                // Giảm theo %
+                newDisc = (calculatedShippingFee * parseFloat(config.discount_amount)) / 100;
+                break;
+ 
+            default:
+                newDisc = 0;
         }
+    }
+ 
+    shipCoupon.discount    = newDisc;
+    shippingCouponDiscount = newDisc;
+    updateAppliedCouponsUI();
+    updateTotalWithCoupons();
+}
 
         // ══════════════════════════════════════════
         // HELPERS
@@ -1502,15 +1521,34 @@ function render_custom_checkout() {
         function loadAvailableCoupons() {
             // Load WC coupons thường
             const p1 = $.post(AJAX_URL, { action: 'get_available_coupons', cart_total: SUBTOTAL });
-            // Load shipping coupons (custom)
+            // Load shipping coupons (từ wp_options qua snippet admin mới)
             const p2 = $.post(AJAX_URL, { action: 'get_shipping_coupons' });
-
+        
             $.when(p1, p2).done(function(r1, r2) {
-                const wcCoupons  = (r1[0]?.success && r1[0]?.data?.coupons)  ? r1[0].data.coupons  : [];
-                const shipCoupons = (r2[0]?.success && r2[0]?.data?.shipping_coupons) ? r2[0].data.shipping_coupons : [];
-                // Gắn badge màu xanh dương để phân biệt
-                shipCoupons.forEach(c => c._isShipping = true);
-                availableCouponsData = [...shipCoupons, ...wcCoupons]; // shipping coupon lên đầu
+                const wcCoupons   = (r1[0]?.success && r1[0]?.data?.coupons)
+                    ? r1[0].data.coupons
+                    : [];
+                const shipCoupons = (r2[0]?.success && r2[0]?.data?.shipping_coupons)
+                    ? r2[0].data.shipping_coupons
+                    : [];
+        
+                // Đánh dấu để renderAvailableCoupons phân biệt
+                shipCoupons.forEach(c => {
+                    c._isShipping = true;
+                    // Server trả về minimum_amount (min_order_amount) — normalize tên field
+                    if (c.minimum_amount === undefined && c.min_order_amount !== undefined) {
+                        c.minimum_amount = c.min_order_amount;
+                    }
+                });
+        
+                // Shipping coupons lên đầu danh sách
+                availableCouponsData = [...shipCoupons, ...wcCoupons];
+                console.log('Available coupons loaded:', availableCouponsData);
+                renderAvailableCoupons();
+            }).fail(function() {
+                // Nếu cả 2 request đều fail
+                availableCouponsData = [];
+                console.log('Failed to load available coupons');
                 renderAvailableCoupons();
             });
         }
@@ -1521,44 +1559,66 @@ function render_custom_checkout() {
                 $list.html('<div style="color:#aaa;font-size:13px;padding:4px 0;">No coupons available</div>');
                 return;
             }
+        
             let html = '';
+        
             availableCouponsData.forEach(function(c) {
                 const isApplied  = appliedCoupons.some(a => a.code === c.code.toUpperCase());
-                const isShipping = !!c._isShipping;
-                const isDisabled = !isShipping && c.minimum_amount > SUBTOTAL; // shipping coupon không check minimum_amount theo subtotal
-
-                let cls = 'm-coupon-card';
-                if (isApplied) cls += ' applied';
-                if (isDisabled) cls += ' disabled';
-
-                // Badge màu: xanh dương cho shipping, xanh lá cho WC coupon
-                const accentColor = isShipping ? '#0ea5e9' : '#3b7d3b';
+                const isShipping = !!c._isShipping || !!c.is_shipping_coupon;
+        
+                // Shipping coupon: không check min_order theo subtotal
+                // WC coupon thường: check minimum_amount vs subtotal
+                const isDisabled = !isShipping && parseFloat(c.minimum_amount || 0) > SUBTOTAL;
+        
+                // Dùng badge_color từ server nếu có, fallback theo loại
+                const accentColor = '#3b7d3b';
                 const badgeLabel  = isShipping ? '🚚 SHIP PROMO' : '🎟️ PROMO';
-
+        
+                let cls = 'm-coupon-card';
+                if (isApplied)  cls += ' applied';
+                if (isDisabled) cls += ' disabled';
+        
                 let btnText = isApplied ? 'Applied ✓' : 'Apply';
+        
+                // Conditions text
                 let conditions = '';
                 if (isDisabled) {
                     conditions = '<div class="m-coupon-card-conditions">Min order: ' + fmtMoney(c.minimum_amount) + '</div>';
                 }
                 if (isShipping) {
-                    conditions = '<div style="font-size:11px;color:#0369a1;margin-top:4px;">Applied to shipping fee</div>';
+                    // Hiển thị điều kiện của shipping coupon (min_order, min_shipping_fee)
+                    const parts = [];
+                    if (parseFloat(c.minimum_amount || 0) > 0) {
+                        parts.push('Min order: ' + fmtMoney(c.minimum_amount));
+                    }
+                    // min_shipping_fee từ server nếu có
+                    if (parseFloat(c.min_shipping_fee || 0) > 0) {
+                        parts.push('Min ship fee: ' + fmtMoney(c.min_shipping_fee));
+                    }
+                    const condText = parts.length > 0 ? parts.join(' • ') : 'Applied to shipping fee';
+                    conditions = '<div style="font-size:11px;color:#0369a1;margin-top:4px;">' + condText + '</div>';
                 }
-
+        
+                // discount_text từ server (FREE SHIP / -₱50 SHIP / -10% SHIP)
+                const discountText = c.discount_text || '';
+        
                 html += '<div class="' + cls + '" style="border-color:' + accentColor + ';" onclick="applyCouponFromCard(\'' + c.code + '\')">' +
                     '<div class="m-coupon-card-info">' +
                         '<div style="font-size:10px;font-weight:700;color:' + accentColor + ';margin-bottom:3px;">' + badgeLabel + '</div>' +
                         '<div class="m-coupon-card-code" style="color:' + accentColor + ';">' + c.code + '</div>' +
-                        '<div class="m-coupon-card-desc">' + c.description + '</div>' +
-                        '<div class="m-coupon-card-details">' + c.details + '</div>' +
+                        '<div class="m-coupon-card-desc">' + (c.description || '') + '</div>' +
+                        '<div class="m-coupon-card-details">' + (c.details || '') + '</div>' +
                         conditions +
                     '</div>' +
-                    '<div class="m-coupon-card-discount" style="color:' + accentColor + ';">' + c.discount_text + '</div>' +
+                    '<div class="m-coupon-card-discount" style="color:' + accentColor + ';">' + discountText + '</div>' +
                     '<button type="button" class="m-coupon-card-btn" style="background:' + accentColor + ';"' +
                         (isDisabled || isApplied ? ' disabled' : '') +
                         ' onclick="event.stopPropagation(); applyCouponFromCard(\'' + c.code + '\')">' +
-                        btnText + '</button>' +
+                        btnText +
+                    '</button>' +
                 '</div>';
             });
+        
             $list.html(html);
         }
 
