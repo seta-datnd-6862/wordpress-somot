@@ -1,5 +1,3 @@
-<?php
-
 /**
  * Custom Checkout Page - Luu
  */
@@ -104,6 +102,16 @@ function render_custom_checkout() {
             'end_time' => '23:00'
         ],
         [
+            'id' => 'tayuman',
+            'cookie_id' => 'so-mot-tayuman-santa-cruz-manila',
+            'name' => 'So Mot Tayuman, Santa Cruz, Manila',
+            'lat' => 14.617797968904622,
+            'lng' => 120.98393022997824,
+            'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila',
+            'start_time' => '11:00',
+            'end_time' => '20:00'
+        ],
+        [
             'id' => 'ayala',
             'cookie_id' => 'so-mot-ayala-malls-cloverleaf',
             'name' => 'So Mot Ayala Malls Cloverleaf',
@@ -111,16 +119,6 @@ function render_custom_checkout() {
             'lng' => 120.9630123,
             'address' => 'A. Bonifacio Ave, La Loma, Quezon City, 1115 Metro Manila, Philippines',
             'start_time' => '10:00',
-            'end_time' => '22:00'
-        ],
-        [
-            'id' => 'tayuman',
-            'cookie_id' => 'so-mot-tayuman-santa-cruz-manila',
-            'name' => 'So Mot Tayuman, Santa Cruz, Manila',
-            'lat' => 14.617797968904622,
-            'lng' => 120.98393022997824,
-            'address' => '1960 Oroquieta Rd, Santa Cruz, Manila, 1008, Santa Cruz, Manila, 1014 Metro Manila',
-            'start_time' => '08:00',
             'end_time' => '22:00'
         ],
     ];
@@ -460,12 +458,11 @@ function render_custom_checkout() {
         .m-grand-amount { color: #3b7d3b; }
         .m-discount-row { color: #10b981; }
 
-        /* ── Sticky footer ── */
         .m-sticky-footer {
-            position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
-            padding: 6px 20px; border-top: 1px solid #eee; z-index: 998;
-            box-shadow: 0 -4px 15px rgba(0,0,0,.08);
-        }
+    position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
+    padding: 6px 20px; border-top: 1px solid #eee; z-index: 99999; /* ← tăng từ 998 lên 99999 */
+    box-shadow: 0 -4px 15px rgba(0,0,0,.08);
+}
         @media (max-width: 767px) {
             .m-sticky-footer {
                 bottom: 0;
@@ -653,6 +650,10 @@ function render_custom_checkout() {
                             <button type="button" class="m-location-btn" id="get-location-btn">
                                 📍 Use My Location
                             </button>
+                        </div>
+
+                        <div id="address-latlong-error" style="display:none; margin-top:8px; padding:10px 14px; background:#fef2f2; border-left:3px solid #ef4444; border-radius:0 8px 8px 0; font-size:13px; color:#c62828; font-weight:600;">
+                            ⚠️ Please select your address from the dropdown suggestions — do not type manually.
                         </div>
 
                         <!-- Delivery area warning (from Doc1) -->
@@ -1249,6 +1250,9 @@ function render_custom_checkout() {
                 const addr = selectedPlace.formatted_address;
 
                 $('#val-address').text(addr).removeClass('has-error');
+
+                $('#address-latlong-error').hide();
+
                 $('#h_address').val(addr);
                 $('#h_address_lat').val(lat);
                 $('#h_address_lng').val(lng);
@@ -1328,29 +1332,77 @@ function render_custom_checkout() {
         // Read branch from cookie and lock it
         // Cookie stores numeric ID (136/137/138), option value is text slug (pioneer/ayala/tayuman)
         // We match via data-cookie-id attribute
-        (function initBranchFromCookie() {
-            const cookieBranch = getCookie('somot_active_branch_id'); // e.g. 'so-mot-pioneer-center-pasig-city'
-            const urlBranch    = new URLSearchParams(window.location.search).get('branch'); // could be '136' or 'pioneer'
-
-            const lookupId = urlBranch || cookieBranch || 'so-mot-pioneer-center-pasig-city'; // fallback Pioneer
-
-            // Try matching by data-cookie-id first (numeric), then by value (text slug)
-            let matchOpt = $('#m_branch_select option').filter(function() {
-                return $(this).data('cookie-id') == lookupId;
-            });
-            if (!matchOpt.length) {
-                matchOpt = $('#m_branch_select option').filter(function() {
-                    return $(this).val() == lookupId;
-                });
+// ══════════════════════════════════════════
+        // INIT: SMART COOKIE SYNC (FORM -> CHECKOUT)
+        // ══════════════════════════════════════════
+        function getParam(key) { return new URLSearchParams(window.location.search).get(key); }
+        function pick(...vals) { return vals.find(v => v != null && String(v).trim() !== '' && String(v).trim() !== 'null'); }
+        
+        // Hàm giải mã URL Component an toàn (Fix lỗi dấu cách/kí tự đặc biệt trong Address)
+        function getCookieSafe(n) {
+            const m = document.cookie.match(new RegExp('(?:^| )' + n + '=([^;]+)'));
+            if (m) {
+                try { return decodeURIComponent(m[1].replace(/\+/g, ' ')); } 
+                catch(e) { return unescape(m[1]); }
             }
+            return '';
+        }
 
-            if (matchOpt.length) {
-                $('#m_branch_select').val(matchOpt.val());
+        // TỪ ĐIỂN PHIÊN DỊCH: Chuyển Cookie Số -> Slug Checkout
+        const CHECKOUT_SLUG_MAP = {
+            '136': 'pioneer',
+            'so-mot-pioneer-center-pasig-city': 'pioneer',
+            'pioneer': 'pioneer',
+            
+            '138': 'ayala',
+            'so-mot-ayala-malls-cloverleaf': 'ayala',
+            'ayala': 'ayala',
+            
+            '137': 'tayuman',
+            'so-mot-tayuman-santa-cruz-manila': 'tayuman',
+            'tayuman': 'tayuman'
+        };
+
+        $(window).on('load', function() {
+            // 1. ĐỌC ORDER TYPE
+            const initType = pick(getParam('type'), getCookieSafe('somot_order_type'), 'delivery');
+            if (initType === 'pickup') {
+                $('#tab-pickup').trigger('click');
             } else {
-                $('#m_branch_select').val($('#m_branch_select option:first').val());
+                $('#tab-delivery').trigger('click');
             }
+
+            // 2. ĐỌC ĐỊA CHỈ & TỌA ĐỘ (Bắt buộc làm trước khi load chi nhánh)
+            const initAddr = pick(getParam('address'), getCookieSafe('somot_customer_address'));
+            const initLat  = parseFloat(pick(getParam('lat'), getCookieSafe('somot_address_lat')) || 0);
+            const initLng  = parseFloat(pick(getParam('lng'), getCookieSafe('somot_address_lng')) || 0);
+
+            if (initAddr) {
+                $('#val-address').text(initAddr);
+                $('#h_address').val(initAddr);
+            }
+            if (initLat && initLng) {
+                $('#h_address_lat').val(initLat);
+                $('#h_address_lng').val(initLng);
+            }
+
+            // 3. ĐỌC VÀ PHIÊN DỊCH CHI NHÁNH
+            const rawCookieBranch = getCookieSafe('somot_active_branch_id') || getCookieSafe('mulopimfwc_location_id');
+            const urlBranch       = getParam('branch');
+            const lookupKey       = urlBranch || rawCookieBranch || '136'; // Mặc định Pioneer nếu không có cookie
+            
+            // Tìm slug tương ứng để chọn (pioneer, ayala, tayuman)
+            const targetSlug      = CHECKOUT_SLUG_MAP[lookupKey] || 'pioneer';
+
+            // Gán giá trị vào select ẩn và kích hoạt sự kiện change
+            $('#m_branch_select').val(targetSlug);
+            
+            // Lệnh trigger('change') này sẽ tự động chạy hàm tính khoảng cách và gọi Lalamove
+            // vì lúc này $('#h_address_lat') đã được điền ở BƯỚC 2.
             $('#m_branch_select').trigger('change');
-        })();
+            
+            updateTotals();
+        });
 
         // ══════════════════════════════════════════
         // EDIT ADDRESS
@@ -1863,8 +1915,18 @@ function render_custom_checkout() {
 
             // Validate delivery address
             if (delType === 'delivery') {
-                if (!$('#h_address').val()) {
+                const addrVal = $('#h_address').val();
+                const addrLat = $('#h_address_lat').val();
+                const addrLng = $('#h_address_lng').val();
+
+                if (!addrVal) {
                     $('#val-address').addClass('has-error'); ok = false;
+                } else if (!addrLat || !addrLng || addrLat === '0' || addrLng === '0') {
+                    $('#val-address').addClass('has-error');
+                    $('#edit-address-container').slideDown(200, function() { initAutocomplete(); });
+                    $('#address-latlong-error').show();
+                    $('html,body').animate({ scrollTop: $('#address-latlong-error').offset().top - 130 }, 400);
+                    ok = false;
                 }
                 // Re-validate delivery area
                 if (selectedPlace) {
@@ -2467,9 +2529,27 @@ function validate_and_apply_coupon() {
         }
     } elseif ($discount_type === 'percent') {
         $discount_amount = ($eligible_total * $coupon_amount) / 100;
-        if ($maximum_amount > 0 && $discount_amount > $maximum_amount) $discount_amount = $maximum_amount;
     }
 
+    // ==========================================
+    // CUSTOM LOGIC: MAX DISCOUNT CHO TỪNG MÃ RIÊNG BIỆT
+    // ==========================================
+    $safe_coupon_code = strtoupper($coupon_code);
+
+    if ($safe_coupon_code === 'SOMOTWELCOME') {
+        // SOMOTWELCOME: Tối đa giảm 200p
+        if ($discount_amount > 200) {
+            $discount_amount = 200;
+        }
+    } elseif ($safe_coupon_code === 'VIETFEAST20') {
+        // VIETFEAST20: Tối đa giảm 150p
+        if ($discount_amount > 150) {
+            $discount_amount = 150;
+        }
+    }
+    // ==========================================
+
+    // Đảm bảo số tiền giảm không bao giờ vượt quá tổng phụ (subtotal) của các món hợp lệ
     $discount_amount = min($discount_amount, $eligible_total);
 
     // Format description
