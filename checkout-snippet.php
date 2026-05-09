@@ -2292,6 +2292,23 @@ function process_complete_checkout() {
             }
         }
 
+        $data_store = WC_Data_Store::load('webhook');
+        $webhook_ids = $data_store->search_webhooks([
+            'status' => 'active',
+            'limit'  => -1,
+        ]);
+
+        error_log('WEBHOOK IDs found: ' . print_r($webhook_ids, true));
+
+        foreach ($webhook_ids as $webhook_id) {
+            $webhook = new WC_Webhook($webhook_id);
+            error_log('Webhook: ' . $webhook->get_topic() . ' | ' . $webhook->get_delivery_url());
+            if ($webhook->get_topic() === 'order.created') {
+                $result = $webhook->deliver($order->get_id());
+                error_log('Webhook deliver result: ' . print_r($result, true));
+            }
+        }
+
         WC()->cart->empty_cart();
 
         wp_send_json_success(array(
@@ -2612,8 +2629,16 @@ function get_available_coupons_ajax() {
             $expiry_date = $coupon->get_date_expires();
             if ($expiry_date && $expiry_date->getTimestamp() < time()) continue;
 
-            $hidden_coupons = array('WINSFOODTRIPS', 'DISCOUNT50', 'HAISELLER', 'HAISELLER2', 'HAISELLER3');
-            if (in_array(strtoupper($coupon->get_code()), $hidden_coupons)) continue;
+            $hidden_coupons = array('WINSFOODTRIPS', 'DISCOUNT50', 'S455J');
+			if (in_array(strtoupper($coupon->get_code()), $hidden_coupons)) continue;
+
+			// Lấy mô tả của mã ưu đãi ra trước
+			$description    = $coupon->get_description();
+
+			// THÊM ĐOẠN NÀY: Kiểm tra nếu mô tả có chứa chữ "GIFTCARD ORDER" thì bỏ qua, không lấy ra
+			if ( strpos( strtoupper( $description ), 'GIFTCARD ORDER' ) !== false ) {
+				continue; 
+			}
 
             $code           = $coupon->get_code();
             $discount_type  = $coupon->get_discount_type();
