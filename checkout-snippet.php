@@ -1,3 +1,8 @@
+
+
+/**
+ * Custom Checkout Page - Luu
+ */
 /**
  * Custom Checkout Page - Luu
  */
@@ -99,7 +104,7 @@ function render_custom_checkout() {
             'lng' => 121.0164509,
             'address' => 'Pioneer Center, Pioneer St, Pasig, Metro Manila, Philippines',
             'start_time' => '07:00',
-            'end_time' => '23:00'
+            'end_time' => '01:00'
         ],
         [
             'id' => 'tayuman',
@@ -1474,18 +1479,23 @@ function render_custom_checkout() {
             const [sh, sm] = startTime.split(':').map(Number);
             const [eh, em] = endTime.split(':').map(Number);
 
+            let startMin = sh * 60 + sm;
+            let endMin   = eh * 60 + em;
+            if (endMin <= startMin) endMin += 24 * 60;
+
             let html = '<div class="m-time-popup" id="time-popup">';
             html += '<div class="m-time-item active" data-val="ASAP">ASAP</div>';
 
-            let h = sh, m2 = sm;
-            while (h < eh || (h === eh && m2 <= em)) {
+            let cur = startMin;
+            while (cur <= endMin) {
+                const h    = Math.floor(cur / 60) % 24;
+                const m2   = cur % 60;
                 const ampm = h >= 12 ? 'PM' : 'AM';
-                const hh = h % 12 || 12;
-                const ts24 = (h < 10 ? '0' : '') + h + ':' + (m2 < 10 ? '0' : '') + m2;
+                const hh   = h % 12 || 12;
+                const ts24 = (h  < 10 ? '0' : '') + h  + ':' + (m2 < 10 ? '0' : '') + m2;
                 const ts12 = hh + ':' + (m2 < 10 ? '0' : '') + m2 + ' ' + ampm;
                 html += '<div class="m-time-item" data-val="' + ts24 + '">' + ts12 + '</div>';
-                m2 += 15;
-                if (m2 >= 60) { m2 = 0; h++; }
+                cur += 15;
             }
             html += '</div>';
             return $(html);
@@ -2292,7 +2302,7 @@ function process_complete_checkout() {
             }
         }
 
-        $data_store = WC_Data_Store::load('webhook');
+       $data_store = WC_Data_Store::load('webhook');
         $webhook_ids = $data_store->search_webhooks([
             'status' => 'active',
             'limit'  => -1,
